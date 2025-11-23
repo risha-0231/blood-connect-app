@@ -864,24 +864,62 @@
    
     function updateDashboardData() {
         if (!userProfile) return;
+        
+        // 1. Get all users and filter for those with ACTIVE requests
         const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        const allApprovedRequests = allUsers.filter(user => user.isRequestActive && !user.isPendingAdminApproval && user.userId !== userId);
+        
+        // Debugging: Check if we can see the requests at all
+        console.log("Total Users loaded:", allUsers.length);
+        
+        const allApprovedRequests = allUsers.filter(user => {
+            // Must have active request, NOT be pending admin, and NOT be the current user
+            return user.isRequestActive === true && 
+                   user.isPendingAdminApproval === false && 
+                   String(user.userId) !== String(userId);
+        });
+
+        console.log("Active Approved Requests found:", allApprovedRequests.length);
+
         const eligibility = calculateDonorEligibility(userProfile);
         let matchingRequests = [];
-        const donorPinCode = userProfile.pinCode;
-        const nearbyPins = getNearbyPinCodes(donorPinCode);
+        
+        // 2. Normalize Donor Data (Force to String)
+        const donorPinCode = String(userProfile.pinCode);
+        const nearbyPins = getNearbyPinCodes(donorPinCode); // This returns strings like ['560076', '560078']
+
         if (eligibility.eligible) {
             matchingRequests = allApprovedRequests
-                .filter(request => isCompatible(userProfile.bloodType, request.bloodTypeNeeded))
-                .filter(request => nearbyPins.includes(request.requestPinCode));
+                .filter(request => {
+                    // 3. Robust Matching Logic
+                    
+                    // Blood Type Match
+                    const bloodMatch = isCompatible(userProfile.bloodType, request.bloodTypeNeeded);
+                    
+                    // Pin Code Match (Force Request Pin to String so 'includes' works)
+                    const requestPin = String(request.requestPinCode);
+                    const pinMatch = nearbyPins.includes(requestPin);
+
+                    // Debugging specific mismatches
+                    if (!bloodMatch) console.log(`Skipping req ${request.name}: Blood mismatch (${request.bloodTypeNeeded})`);
+                    if (!pinMatch) console.log(`Skipping req ${request.name}: Pin mismatch (${requestPin} not in ${nearbyPins})`);
+                    
+                    return bloodMatch && pinMatch;
+                });
+
+            // Sort by proximity (Exact match first)
             matchingRequests.sort((a, b) => {
-                const aIsExact = a.requestPinCode === donorPinCode;
-                const bIsExact = b.requestPinCode === donorPinCode;
+                const aIsExact = String(a.requestPinCode) === donorPinCode;
+                const bIsExact = String(b.requestPinCode) === donorPinCode;
+
                 if (aIsExact && !bIsExact) return -1;
                 if (!aIsExact && bIsExact) return 1;
-                return b.updatedAt - a.updatedAt;
+                
+                // Fallback to sort by time
+                return (b.updatedAt || 0) - (a.updatedAt || 0);
             });
         }
+        
+        console.log("Final Matching Requests for display:", matchingRequests.length);
         renderDonorRequests(matchingRequests, eligibility);
     }
 
