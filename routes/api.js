@@ -1,4 +1,4 @@
-// routes/api.js
+// routes/api.js (REPLACE ENTIRE FILE)
 const express = require('express');
 const User = require('../models/User');
 const Request = require('../models/Request');
@@ -44,6 +44,11 @@ module.exports = function(io) {
   // create request
   router.post('/request', async (req, res) => {
     try {
+      // FIX: Block Donor from creating requests
+      if (req.body.userRole === 'Donor') {
+          return res.status(403).json({ error: 'Donors cannot create blood requests.' });
+      }
+
       const r = await Request.create(req.body);
       io.emit('newRequest', r);
       res.json({ request: r });
@@ -98,10 +103,8 @@ module.exports = function(io) {
       const { action } = req.body; // 'approve' or 'deny'
       
       // Find request by _id
-      // Note: We use findById because standard Mongo IDs are used for requests in your schema
       const reqDoc = await Request.findById(requestId);
       
-      // Fallback: If not found by ID, try finding by requesterId just in case (optional safety)
       const targetReq = reqDoc; 
 
       if (!targetReq) return res.status(404).json({ error: 'Request not found' });
