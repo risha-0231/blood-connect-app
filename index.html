@@ -545,7 +545,39 @@
         'AB-': ['AB-', 'AB+'],
         'AB+': ['AB+']
     };
-    const isCompatible = (donorType, neededType) => canDonateTo[donorType]?.includes(neededType) || false;
+    /**
+ * Checks if a Donor's blood type is compatible with the needed blood type.
+ * This is the fix for the O- donor not seeing the O- request.
+ * @param {string} donorType The blood type of the logged-in Donor (e.g., 'O-')
+ * @param {string} neededType The blood type required by the Hospital (e.g., 'A+')
+ * @returns {boolean} True if the donor can donate to the request.
+ */
+const isCompatible = (donorType, neededType) => {
+    // Definitive chart of which donor type can donate to which recipient type.
+    // The key is the DONOR's type, and the array lists all compatible RECIPIENT types.
+    const compatibility = {
+        'O-': ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'], // Universal Donor
+        'O+': ['O+', 'A+', 'B+', 'AB+'],
+        'A-': ['A-', 'A+', 'AB-', 'AB+'],
+        'A+': ['A+', 'AB+'],
+        'B-': ['B-', 'B+', 'AB-', 'AB+'],
+        'B+': ['B+', 'AB+'],
+        'AB-': ['AB-', 'AB+'],
+        'AB+': ['AB+'], // Can only donate to AB+
+    };
+    
+    // Ensure both types are valid strings and uppercase for reliable comparison
+    const sanitizedDonorType = (donorType || '').toUpperCase();
+    const sanitizedNeededType = (neededType || '').toUpperCase();
+
+    // 1. Check if the donor type is valid in our chart.
+    if (!compatibility[sanitizedDonorType]) {
+        return false; // Invalid blood type for donor
+    }
+
+    // 2. Check if the needed type is in the list of types the donor can donate to.
+    return compatibility[sanitizedDonorType].includes(sanitizedNeededType);
+};
 
     const getNearbyPinCodes = (pinCode) => {
         return BANGALORE_PROXIMITY_MAP[pinCode] || [pinCode];
