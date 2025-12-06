@@ -419,7 +419,7 @@
                 isRequestActive: false,
                 isPendingAdminApproval: false,
                 bloodTypeNeeded: '',
-                requestPinCode: '',
+                pinCode: '',
                 donorMatch: null, 
                 userId: u.userId || u._id 
             };
@@ -438,7 +438,7 @@
                 mergedList[userIndex].isRequestActive = isActive;
                 mergedList[userIndex].isPendingAdminApproval = (req.status === 'PENDING');
                 mergedList[userIndex].bloodTypeNeeded = req.bloodTypeNeeded;
-                mergedList[userIndex].requestPinCode = req.pinCode;
+                mergedList[userIndex].pinCode = req.pinCode;
                 mergedList[userIndex].updatedAt = req.updatedAt || Date.now();
                 mergedList[userIndex]._requestId = req._id; // Store request ID
             }
@@ -636,12 +636,18 @@ const isCompatible = (donorType, neededType) => {
     };
 
     const loadProfile = () => {
-        const profileData = localStorage.getItem(USER_PROFILE_KEY);
-        if (profileData) {
-            userProfile = JSON.parse(profileData);
-            userId = userProfile.userId;
+    const profileData = localStorage.getItem(USER_PROFILE_KEY);
+    if (profileData) {
+        userProfile = JSON.parse(profileData);
+        userId = userProfile.userId;
+        
+        // --- ADDED FIX: Convert bloodType to UPPERCASE for compatibility ---
+        if (userProfile.bloodType) {
+            userProfile.bloodType = userProfile.bloodType.toUpperCase();
         }
-    };
+        // --------------------------------------------------------------------
+    }
+};
 
     const hideAllViews = () => {
         [ui.loading, ui.roleSelection, ui.userLogin, ui.adminLogin, ui.adminDashboard,
@@ -928,7 +934,8 @@ const isCompatible = (donorType, neededType) => {
                     const bloodMatch = isCompatible(userProfile.bloodType, request.bloodTypeNeeded);
                     
                     // Pin Code Match (Force Request Pin to String so 'includes' works)
-                    const requestPin = String(request.requestPinCode);
+                    // CORRECTED LINE: The field name must match the schema (pinCode)
+                    const requestPin = String(request.pinCode);
                     const pinMatch = nearbyPins.includes(requestPin);
 
                     // Debugging specific mismatches
@@ -940,8 +947,8 @@ const isCompatible = (donorType, neededType) => {
 
             // Sort by proximity (Exact match first)
             matchingRequests.sort((a, b) => {
-                const aIsExact = String(a.requestPinCode) === donorPinCode;
-                const bIsExact = String(b.requestPinCode) === donorPinCode;
+                const aIsExact = String(a.pinCode) === donorPinCode;
+                const bIsExact = String(b.pinCode) === donorPinCode;
 
                 if (aIsExact && !bIsExact) return -1;
                 if (!aIsExact && bIsExact) return 1;
@@ -1169,7 +1176,7 @@ const isCompatible = (donorType, neededType) => {
             isRequestActive: isEdit ? userProfile.isRequestActive : false,
             isPendingAdminApproval: isEdit ? (uploadedFile ? false : userProfile.isPendingAdminApproval) : false,
             bloodTypeNeeded: isEdit ? userProfile.bloodTypeNeeded : '',
-            requestPinCode: isEdit ? userProfile.requestPinCode : '',
+            pinCode: isEdit ? userProfile.pinCode : ui.pinCodeInput.value.trim(),
             donorMatch: isEdit ? userProfile.donorMatch : null,
         };
         if (isEdit) {
@@ -1192,7 +1199,7 @@ const isCompatible = (donorType, neededType) => {
 
         const bloodTypeNeeded = document.getElementById('bloodTypeNeeded').value;
        
-        const requestPinCode = userProfile.userRole === 'Hospital'
+        const pinCode = userProfile.userRole === 'Hospital'
                                  ? userProfile.pinCode
                                  : document.getElementById('request-pinCode').value.trim();
        
@@ -1208,7 +1215,7 @@ const isCompatible = (donorType, neededType) => {
             isRequestActive: true,
             isPendingAdminApproval: true,
             bloodTypeNeeded: bloodTypeNeeded,
-            requestPinCode: requestPinCode,
+            pinCode: pinCode,
             donorMatch: null,
             updatedAt: Date.now()
         };
@@ -1221,19 +1228,19 @@ const isCompatible = (donorType, neededType) => {
           name: updatedProfile.name || updatedProfile.userRole || 'Unknown',
           phone: updatedProfile.phone || '',
           userRole: updatedProfile.userRole || 'Hospital',
-          pinCode: updatedProfile.requestPinCode || requestPinCode,
+          pinCode: updatedProfile.pinCode || pinCode,
           bloodTypeNeeded: updatedProfile.bloodTypeNeeded || bloodTypeNeeded
         });
 
         // Force a sync to ensure we have the ID back if possible, though socket usually handles it
         // We render immediately for UX
-        renderDonors([], requestPinCode, bloodTypeNeeded);
+        renderDonors([], pinCode, bloodTypeNeeded);
         ui.noDonors.textContent = "⚠️ Your request is pending admin approval. Donors will be notified once approved.";
         ui.noDonors.classList.remove('hidden');
 
         renderMyRequests();
         ui.myRequestsSection.classList.remove('hidden');
-        showNotification(`Request submitted! Awaiting Admin approval for ${bloodTypeNeeded} near Pin ${requestPinCode}.`, 'blue');
+        showNotification(`Request submitted! Awaiting Admin approval for ${bloodTypeNeeded} near Pin ${pinCode}.`, 'blue');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Request & Find Nearby Donors';
     });
@@ -1341,7 +1348,7 @@ const isCompatible = (donorType, neededType) => {
             item.innerHTML = `
                 <div>
                     <div class="font-bold text-red-600">${req.bloodTypeNeeded || 'Unknown'}</div>
-                    <div class="text-sm text-gray-600">Pin: ${req.requestPinCode} • By: ${req.name}</div>
+                    <div class="text-sm text-gray-600">Pin: ${req.pinCode} • By: ${req.name}</div>
                 </div>
                 <div class="flex gap-2">
                     <button class="approve-request-btn py-2 px-3 bg-green-100 text-green-700 rounded-full text-sm font-semibold" data-id="${req.userId}" data-req-id="${req._requestId || ''}">Approve</button>
@@ -1372,9 +1379,9 @@ const isCompatible = (donorType, neededType) => {
         });
     }
 
-    function renderDonors(donorsArray, requestPinCode, bloodTypeNeeded) {
+    function renderDonors(donorsArray, pinCode, bloodTypeNeeded) {
       try {
-        const pin = requestPinCode || (userProfile && userProfile.requestPinCode) || '';
+        const pin = pinCode || (userProfile && userProfile.pinCode) || '';
         const needed = bloodTypeNeeded || (userProfile && userProfile.bloodTypeNeeded) || '';
         let donors = Array.isArray(donorsArray) && donorsArray.length ? donorsArray : getDonorsInArea(pin, needed);
 
@@ -1441,7 +1448,7 @@ const isCompatible = (donorType, neededType) => {
           card.innerHTML = `
             <div>
               <div class="font-bold text-red-600">${r.bloodTypeNeeded || 'Unknown'}</div>
-              <div class="text-sm text-gray-600">Pin: ${r.requestPinCode || r.pinCode || 'N/A'} • By: ${r.name || 'Unknown'}</div>
+              <div class="text-sm text-gray-600">Pin: ${r.pinCode || r.pinCode || 'N/A'} • By: ${r.name || 'Unknown'}</div>
               <div class="text-xs text-gray-500">Status: ${r.status || (r.isPendingAdminApproval ? 'Pending' : 'Active')}</div>
             </div>
             <div class="flex flex-col items-end gap-2">
@@ -1487,7 +1494,7 @@ const isCompatible = (donorType, neededType) => {
           card.className = 'bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center';
           card.innerHTML = `
             <div>
-              <div class="font-bold">${r.bloodTypeNeeded || r.bloodTypeNeeded || 'Unknown'} • Pin ${r.requestPinCode || r.pinCode || 'N/A'}</div>
+              <div class="font-bold">${r.bloodTypeNeeded || r.bloodTypeNeeded || 'Unknown'} • Pin ${r.pinCode || r.pinCode || 'N/A'}</div>
               <div class="text-sm text-gray-600">Status: ${r.isPendingAdminApproval ? 'Pending' : (r.isRequestActive ? 'Active' : 'Closed')}</div>
             </div>
             <div class="flex gap-2">
