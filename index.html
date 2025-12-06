@@ -264,43 +264,53 @@
                 <button id="tab-donor" class="py-2 px-4 text-sm font-bold text-gray-600 hover:text-red-600 border-b-2 border-transparent transition duration-150">Available Donor Requests</button>
             </div>
 
-            <div id="view-request" class="hidden">
-        <div id="hospital-request-section">
-            <form id="request-form" class="space-y-4 mb-8">
-                <h3 class="text-xl font-bold mb-4 text-blue-700">Submit an Urgent Blood Request</h3>
-                
-                <label for="bloodTypeNeeded" class="block text-sm font-medium text-gray-700">Blood Type Needed (Select)</label>
-                <select id="bloodTypeNeeded" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md" required>
-                    <option value="">Select Blood Type</option>
-                    <option value="O+">O+</option><option value="O-">O-</option>
-                    <option value="A+">A+</option><option value="A-">A-</option>
-                    <option value="B+">B+</option><option value="B-">B-</option>
-                    <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                </select>
+            <div id="view-request">
+                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Submit Urgent Blood Need</h3>
+                <p class="text-sm text-gray-600 mb-6"><span id="request-pin-instruction">Enter the blood type and **current pin code** where blood is needed.</span></p>
 
-                <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300">Submit Request & Find Nearby Donors</button>
-            </form>
-        </div>
+                <form id="request-form" class="space-y-4 p-6 bg-gray-50 rounded-xl">
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div id="request-pin-group">
+                             <label for="request-pinCode" class="block text-sm font-medium text-gray-700">Current Area Pin Code (Where Blood is Needed)</label>
+                             <input type="number" id="request-pinCode" required data-original-required="true" min="100000" max="999999" placeholder="e.g., 560078" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
+                         </div>
+                         <div>
+                             <label for="bloodTypeNeeded" class="block text-sm font-medium text-gray-700">Blood Type Needed</label>
+                             <select id="bloodTypeNeeded" required data-original-required="true" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 bg-white focus:ring-red-500 focus:border-red-500">
+                                 <option value="">Select Blood Type</option>
+                                 <option value="A+">A+</option><option value="A-">A-</option>
+                                 <option value="B+">B+</option><option value="B-">B-</option>
+                                 <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                                 <option value="O+">O+</option><option value="O-">O-</option>
+                             </select>
+                         </div>
+                     </div>
+                     <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">Submit Request & Find Nearby Donors</button>
+                </form>
 
-        <div class="mt-8 pt-4 border-t border-gray-300">
-            <h4 class="text-lg font-bold mb-4 text-red-700">My Active Requests</h4>
-            <div id="my-requests-list" class="space-y-4">
-                <p class="text-gray-500 text-center p-6 bg-red-50 rounded-lg border border-red-200">Loading requests...</p>
+                <div class="mt-8 pt-4 border-t border-gray-300">
+                    <h4 class="text-lg font-bold mb-4 text-blue-700">Matching Donors Near Requested Area (<span id="matched-pin-display">...</span>)</h4>
+                    <div id="donorMap"></div>
+                    <div id="donors-list" class="space-y-4">
+                        <p id="no-donors" class="text-gray-500 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200">🔍 Submit a request above to find compatible donors in the area.</p>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <div id="view-donor" class="hidden">
-        <h3 class="text-2xl font-bold mb-6 text-red-700">Nearby Blood Requests Matching Your Type</h3>
-        
-        <div class="mt-4 pt-4 border-t border-gray-300"> 
-            <h4 class="text-lg font-bold mb-4 text-blue-700">Matching Hospitals Near Your Area (<span id="matched-pin-display">...</span>)</h4> 
-            <div id="donorMap" class="h-64 rounded-lg shadow-inner mb-4"></div> 
-            <div id="donors-list" class="space-y-4"> 
-                <p id="no-donors" class="text-gray-500 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200">🔍 Thank you for your readiness. Checking for compatible requests...</p> 
-            </div> 
-        </div>
-    </div>
+            <div id="view-donor" class="hidden">
+                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Emergency Matches in Your Area</h3>
+                <div id="requests-list" class="space-y-4">
+                    <p id="no-requests" class="text-gray-500 text-center p-6 bg-green-50 rounded-lg border border-green-200 hidden">✅ No active matching requests in your vicinity right now.</p>
+                    <p id="not-donor-message" class="text-gray-700 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200 hidden">You are currently marked as **Ineligible to Donate**. Update your profile for eligibility status.</p>
+                </div>
+            </div>
+           
+            <div id="my-requests-section" class="mt-8 pt-4 border-t border-gray-300 hidden">
+                <h4 class="text-lg font-semibold mb-3">Your Open Requests / Match Notifications</h4>
+                <div id="my-requests-list" class="space-y-3">
+                    <p class="text-sm text-gray-500" id="no-open-requests">You have no open requests or pending match notifications.</p>
+                </div>
+            </div>
         </div>
         <div id="profile-management" class="hidden"></div>
     </div>
@@ -409,7 +419,7 @@
                 isRequestActive: false,
                 isPendingAdminApproval: false,
                 bloodTypeNeeded: '',
-                pinCode: '',
+                requestPinCode: '',
                 donorMatch: null, 
                 userId: u.userId || u._id 
             };
@@ -428,7 +438,7 @@
                 mergedList[userIndex].isRequestActive = isActive;
                 mergedList[userIndex].isPendingAdminApproval = (req.status === 'PENDING');
                 mergedList[userIndex].bloodTypeNeeded = req.bloodTypeNeeded;
-                mergedList[userIndex].pinCode = req.pinCode;
+                mergedList[userIndex].requestPinCode = req.pinCode;
                 mergedList[userIndex].updatedAt = req.updatedAt || Date.now();
                 mergedList[userIndex]._requestId = req._id; // Store request ID
             }
@@ -535,39 +545,7 @@
         'AB-': ['AB-', 'AB+'],
         'AB+': ['AB+']
     };
-    /**
- * Checks if a Donor's blood type is compatible with the needed blood type.
- * This is the fix for the O- donor not seeing the O- request.
- * @param {string} donorType The blood type of the logged-in Donor (e.g., 'O-')
- * @param {string} neededType The blood type required by the Hospital (e.g., 'A+')
- * @returns {boolean} True if the donor can donate to the request.
- */
-const isCompatible = (donorType, neededType) => {
-    // Definitive chart of which donor type can donate to which recipient type.
-    // The key is the DONOR's type, and the array lists all compatible RECIPIENT types.
-    const compatibility = {
-        'O-': ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'], // Universal Donor
-        'O+': ['O+', 'A+', 'B+', 'AB+'],
-        'A-': ['A-', 'A+', 'AB-', 'AB+'],
-        'A+': ['A+', 'AB+'],
-        'B-': ['B-', 'B+', 'AB-', 'AB+'],
-        'B+': ['B+', 'AB+'],
-        'AB-': ['AB-', 'AB+'],
-        'AB+': ['AB+'], // Can only donate to AB+
-    };
-    
-    // Ensure both types are valid strings and uppercase for reliable comparison
-    const sanitizedDonorType = (donorType || '').toUpperCase();
-    const sanitizedNeededType = (neededType || '').toUpperCase();
-
-    // 1. Check if the donor type is valid in our chart.
-    if (!compatibility[sanitizedDonorType]) {
-        return false; // Invalid blood type for donor
-    }
-
-    // 2. Check if the needed type is in the list of types the donor can donate to.
-    return compatibility[sanitizedDonorType].includes(sanitizedNeededType);
-};
+    const isCompatible = (donorType, neededType) => canDonateTo[donorType]?.includes(neededType) || false;
 
     const getNearbyPinCodes = (pinCode) => {
         return BANGALORE_PROXIMITY_MAP[pinCode] || [pinCode];
@@ -626,18 +604,12 @@ const isCompatible = (donorType, neededType) => {
     };
 
     const loadProfile = () => {
-    const profileData = localStorage.getItem(USER_PROFILE_KEY);
-    if (profileData) {
-        userProfile = JSON.parse(profileData);
-        userId = userProfile.userId;
-        
-        // --- ADDED FIX: Convert bloodType to UPPERCASE for compatibility ---
-        if (userProfile.bloodType) {
-            userProfile.bloodType = userProfile.bloodType.toUpperCase();
+        const profileData = localStorage.getItem(USER_PROFILE_KEY);
+        if (profileData) {
+            userProfile = JSON.parse(profileData);
+            userId = userProfile.userId;
         }
-        // --------------------------------------------------------------------
-    }
-};
+    };
 
     const hideAllViews = () => {
         [ui.loading, ui.roleSelection, ui.userLogin, ui.adminLogin, ui.adminDashboard,
@@ -924,8 +896,7 @@ const isCompatible = (donorType, neededType) => {
                     const bloodMatch = isCompatible(userProfile.bloodType, request.bloodTypeNeeded);
                     
                     // Pin Code Match (Force Request Pin to String so 'includes' works)
-                    // CORRECTED LINE: The field name must match the schema (pinCode)
-                    const requestPin = String(request.pinCode);
+                    const requestPin = String(request.requestPinCode);
                     const pinMatch = nearbyPins.includes(requestPin);
 
                     // Debugging specific mismatches
@@ -937,8 +908,8 @@ const isCompatible = (donorType, neededType) => {
 
             // Sort by proximity (Exact match first)
             matchingRequests.sort((a, b) => {
-                const aIsExact = String(a.pinCode) === donorPinCode;
-                const bIsExact = String(b.pinCode) === donorPinCode;
+                const aIsExact = String(a.requestPinCode) === donorPinCode;
+                const bIsExact = String(b.requestPinCode) === donorPinCode;
 
                 if (aIsExact && !bIsExact) return -1;
                 if (!aIsExact && bIsExact) return 1;
@@ -1166,7 +1137,7 @@ const isCompatible = (donorType, neededType) => {
             isRequestActive: isEdit ? userProfile.isRequestActive : false,
             isPendingAdminApproval: isEdit ? (uploadedFile ? false : userProfile.isPendingAdminApproval) : false,
             bloodTypeNeeded: isEdit ? userProfile.bloodTypeNeeded : '',
-            pinCode: isEdit ? userProfile.pinCode : ui.pinCodeInput.value.trim(),
+            requestPinCode: isEdit ? userProfile.requestPinCode : '',
             donorMatch: isEdit ? userProfile.donorMatch : null,
         };
         if (isEdit) {
@@ -1189,7 +1160,7 @@ const isCompatible = (donorType, neededType) => {
 
         const bloodTypeNeeded = document.getElementById('bloodTypeNeeded').value;
        
-        const pinCode = userProfile.userRole === 'Hospital'
+        const requestPinCode = userProfile.userRole === 'Hospital'
                                  ? userProfile.pinCode
                                  : document.getElementById('request-pinCode').value.trim();
        
@@ -1205,7 +1176,7 @@ const isCompatible = (donorType, neededType) => {
             isRequestActive: true,
             isPendingAdminApproval: true,
             bloodTypeNeeded: bloodTypeNeeded,
-            pinCode: pinCode,
+            requestPinCode: requestPinCode,
             donorMatch: null,
             updatedAt: Date.now()
         };
@@ -1218,19 +1189,19 @@ const isCompatible = (donorType, neededType) => {
           name: updatedProfile.name || updatedProfile.userRole || 'Unknown',
           phone: updatedProfile.phone || '',
           userRole: updatedProfile.userRole || 'Hospital',
-          pinCode: updatedProfile.pinCode || pinCode,
+          pinCode: updatedProfile.requestPinCode || requestPinCode,
           bloodTypeNeeded: updatedProfile.bloodTypeNeeded || bloodTypeNeeded
         });
 
         // Force a sync to ensure we have the ID back if possible, though socket usually handles it
         // We render immediately for UX
-        renderDonors([], pinCode, bloodTypeNeeded);
+        renderDonors([], requestPinCode, bloodTypeNeeded);
         ui.noDonors.textContent = "⚠️ Your request is pending admin approval. Donors will be notified once approved.";
         ui.noDonors.classList.remove('hidden');
 
         renderMyRequests();
         ui.myRequestsSection.classList.remove('hidden');
-        showNotification(`Request submitted! Awaiting Admin approval for ${bloodTypeNeeded} near Pin ${pinCode}.`, 'blue');
+        showNotification(`Request submitted! Awaiting Admin approval for ${bloodTypeNeeded} near Pin ${requestPinCode}.`, 'blue');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Request & Find Nearby Donors';
     });
@@ -1338,7 +1309,7 @@ const isCompatible = (donorType, neededType) => {
             item.innerHTML = `
                 <div>
                     <div class="font-bold text-red-600">${req.bloodTypeNeeded || 'Unknown'}</div>
-                    <div class="text-sm text-gray-600">Pin: ${req.pinCode} • By: ${req.name}</div>
+                    <div class="text-sm text-gray-600">Pin: ${req.requestPinCode} • By: ${req.name}</div>
                 </div>
                 <div class="flex gap-2">
                     <button class="approve-request-btn py-2 px-3 bg-green-100 text-green-700 rounded-full text-sm font-semibold" data-id="${req.userId}" data-req-id="${req._requestId || ''}">Approve</button>
@@ -1369,9 +1340,9 @@ const isCompatible = (donorType, neededType) => {
         });
     }
 
-    function renderDonors(donorsArray, pinCode, bloodTypeNeeded) {
+    function renderDonors(donorsArray, requestPinCode, bloodTypeNeeded) {
       try {
-        const pin = pinCode || (userProfile && userProfile.pinCode) || '';
+        const pin = requestPinCode || (userProfile && userProfile.requestPinCode) || '';
         const needed = bloodTypeNeeded || (userProfile && userProfile.bloodTypeNeeded) || '';
         let donors = Array.isArray(donorsArray) && donorsArray.length ? donorsArray : getDonorsInArea(pin, needed);
 
@@ -1438,7 +1409,7 @@ const isCompatible = (donorType, neededType) => {
           card.innerHTML = `
             <div>
               <div class="font-bold text-red-600">${r.bloodTypeNeeded || 'Unknown'}</div>
-              <div class="text-sm text-gray-600">Pin: ${r.pinCode || r.pinCode || 'N/A'} • By: ${r.name || 'Unknown'}</div>
+              <div class="text-sm text-gray-600">Pin: ${r.requestPinCode || r.pinCode || 'N/A'} • By: ${r.name || 'Unknown'}</div>
               <div class="text-xs text-gray-500">Status: ${r.status || (r.isPendingAdminApproval ? 'Pending' : 'Active')}</div>
             </div>
             <div class="flex flex-col items-end gap-2">
@@ -1484,7 +1455,7 @@ const isCompatible = (donorType, neededType) => {
           card.className = 'bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center';
           card.innerHTML = `
             <div>
-              <div class="font-bold">${r.bloodTypeNeeded || r.bloodTypeNeeded || 'Unknown'} • Pin ${r.pinCode || r.pinCode || 'N/A'}</div>
+              <div class="font-bold">${r.bloodTypeNeeded || r.bloodTypeNeeded || 'Unknown'} • Pin ${r.requestPinCode || r.pinCode || 'N/A'}</div>
               <div class="text-sm text-gray-600">Status: ${r.isPendingAdminApproval ? 'Pending' : (r.isRequestActive ? 'Active' : 'Closed')}</div>
             </div>
             <div class="flex gap-2">
