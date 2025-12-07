@@ -1,4 +1,5 @@
-// routes/api.js (REPLACE ENTIRE FILE)
+// routes/api.js - REPLACE ENTIRE FILE CONTENT WITH THIS UPDATED VERSION
+
 const express = require('express');
 const User = require('../models/User');
 const Request = require('../models/Request');
@@ -110,11 +111,25 @@ module.exports = function(io) {
       if (!targetReq) return res.status(404).json({ error: 'Request not found' });
 
       if (action === 'approve') {
+        // 1. Update the Request document to APPROVED
         targetReq.status = 'APPROVED';
         targetReq.updatedAt = Date.now();
         await targetReq.save();
         
-        // Emit socket event so frontends know a request is approved
+        // 2. IMPORTANT: Update the User (Hospital) document to mark the request as active
+        // The requesterId field is available on the Request model
+        const hospitalUser = await User.findOne({ userId: targetReq.requesterId }); 
+        if (hospitalUser) {
+            // isRequestActive is on the User schema
+            hospitalUser.isRequestActive = true; 
+            // Save the needed blood type and pin code onto the User document for matching logic
+            hospitalUser.bloodTypeNeeded = targetReq.bloodTypeNeeded; 
+            hospitalUser.requestPinCode = targetReq.pinCode; 
+            hospitalUser.updatedAt = new Date(); 
+            await hospitalUser.save();
+        }
+
+        // 3. Emit socket event
         if (io) io.emit('requestApproved', { 
             requestId: targetReq._id, 
             pinCode: targetReq.pinCode, 
@@ -126,6 +141,17 @@ module.exports = function(io) {
         targetReq.status = 'DENIED';
         targetReq.updatedAt = Date.now();
         await targetReq.save();
+
+        // Also deactivate the request on the User profile if it was active
+        const hospitalUser = await User.findOne({ userId: targetReq.requesterId }); 
+        if (hospitalUser) {
+            hospitalUser.isRequestActive = false; 
+            hospitalUser.bloodTypeNeeded = null; 
+            hospitalUser.requestPinCode = null; 
+            hospitalUser.updatedAt = new Date(); 
+            await hospitalUser.save();
+        }
+
         if (io) io.emit('requestDenied', { requestId: targetReq._id });
         return res.json({ request: targetReq });
       }
