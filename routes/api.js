@@ -1,5 +1,4 @@
-// routes/api.js - REPLACE ENTIRE FILE CONTENT WITH THIS UPDATED VERSION
-
+// routes/api.js (REPLACE ENTIRE FILE)
 const express = require('express');
 const User = require('../models/User');
 const Request = require('../models/Request');
@@ -103,10 +102,7 @@ module.exports = function(io) {
       const { requestId } = req.params;
       const { action } = req.body; // 'approve' or 'deny'
       
-      // Find request by _id
-      const reqDoc = await Request.findById(requestId);
-      
-      const targetReq = reqDoc; 
+      const targetReq = await Request.findById(requestId); 
 
       if (!targetReq) return res.status(404).json({ error: 'Request not found' });
 
@@ -117,12 +113,9 @@ module.exports = function(io) {
         await targetReq.save();
         
         // 2. IMPORTANT: Update the User (Hospital) document to mark the request as active
-        // The requesterId field is available on the Request model
         const hospitalUser = await User.findOne({ userId: targetReq.requesterId }); 
         if (hospitalUser) {
-            // isRequestActive is on the User schema
             hospitalUser.isRequestActive = true; 
-            // Save the needed blood type and pin code onto the User document for matching logic
             hospitalUser.bloodTypeNeeded = targetReq.bloodTypeNeeded; 
             hospitalUser.requestPinCode = targetReq.pinCode; 
             hospitalUser.updatedAt = new Date(); 
@@ -142,7 +135,7 @@ module.exports = function(io) {
         targetReq.updatedAt = Date.now();
         await targetReq.save();
 
-        // Also deactivate the request on the User profile if it was active
+        // Also deactivate the request on the User profile
         const hospitalUser = await User.findOne({ userId: targetReq.requesterId }); 
         if (hospitalUser) {
             hospitalUser.isRequestActive = false; 
@@ -162,7 +155,6 @@ module.exports = function(io) {
   });
 
   // --- NEW: GLOBAL SYNC ENDPOINT ---
-  // This helps the frontend rebuild its "local database" by fetching all users + all requests
   router.get('/sync-storage', async (req, res) => {
     try {
       // 1. Get all users
