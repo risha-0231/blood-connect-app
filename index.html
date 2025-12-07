@@ -486,6 +486,18 @@
         '560083': [12.890, 77.570],
         '560037': [12.985, 77.700],
     };
+
+    // Add this helper function immediately after the PIN_COORDINATES const object
+    const getCoordsForPin = (pin) => {
+        const pinStr = String(pin);
+        if (PIN_COORDINATES[pinStr]) {
+            return PIN_COORDINATES[pinStr];
+        }
+        // Fallback: Return a coordinate slightly offset from Bangalore Center
+        // so it at least appears on the map (Simulated Location)
+        const offset = (Math.random() - 0.5) * 0.05;
+        return [12.9716 + offset, 77.5946 + offset];
+    };
    
     let donorMap = null;
 
@@ -525,27 +537,38 @@
     const isCompatible = (donorType, neededType) => canDonateTo[donorType]?.includes(neededType) || false;
 
     const getNearbyPinCodes = (pinCode) => {
-        returnKZ = BANGALORE_PROXIMITY_MAP[pinCode] || [pinCode];
-        return BANGALORE_PROXIMITY_MAP[pinCode] || [pinCode];
+        // Force input to string to match the keys in the object
+        const pinStr = String(pinCode);
+        return BANGALORE_PROXIMITY_MAP[pinStr] || [pinStr];
     };
    
     const getDonorsInArea = (requestedPinCode, neededBloodType) => {
         const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        const nearbyPins = getNearbyPinCodes(requestedPinCode);
+        // FORCE STRING:
+        const reqPinString = String(requestedPinCode); 
+        const nearbyPins = getNearbyPinCodes(reqPinString);
         const now = Date.now();
 
         const matchingDonors = allUsers.filter(donor => {
             if (donor.userId === userId || donor.userRole !== 'Donor') return false;
             if (donor.status !== 'VERIFIED') return false;
+            
+            // Check eligibility
             const isEligible = (donor.weight >= 50 && donor.age >= 18 && donor.age <= 65) &&
                              (donor.lastDonationTime + DONATION_COOLDOWN_MS < now);
+            
+            // FORCE STRING COMPARISON for Pin Codes:
+            const donorPinString = String(donor.pinCode);
+            const isPinMatch = nearbyPins.includes(donorPinString);
+
             return isEligible &&
                    isCompatible(donor.bloodType, neededBloodType) &&
-                   nearbyPins.includes(donor.pinCode);
+                   isPinMatch;
         });
+
         matchingDonors.sort((a, b) => {
-            const aIsExact = a.pinCode === requestedPinCode;
-            const bIsExact = b.pinCode === requestedPinCode;
+            const aIsExact = String(a.pinCode) === reqPinString;
+            const bIsExact = String(b.pinCode) === reqPinString;
             if (aIsExact && !bIsExact) return -1;
             if (!aIsExact && bIsExact) return 1;  
             return a.name.localeCompare(b.name);
@@ -855,6 +878,7 @@
         
         const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
         
+        // Filter active requests from OTHERS
         const allApprovedRequests = allUsers.filter(user => {
             return user.isRequestActive === true && 
                    user.isPendingAdminApproval === false && 
@@ -864,14 +888,20 @@
         const eligibility = calculateDonorEligibility(userProfile);
         let matchingRequests = [];
         
+        // FORCE STRING for the current user's pin
         const donorPinCode = String(userProfile.pinCode);
         const nearbyPins = getNearbyPinCodes(donorPinCode); 
 
         if (eligibility.eligible) {
             matchingRequests = allApprovedRequests.filter(request => {
                 const bloodMatch = isCompatible(userProfile.bloodType, request.bloodTypeNeeded);
-                const requestPin = String(request.requestPinCode);
+                
+                // FORCE STRING for the request pin
+                const requestPin = String(request.requestPinCode || request.pinCode);
+                
+                // Check if the Request's pin is in the Donor's nearby list
                 const pinMatch = nearbyPins.includes(requestPin);
+                
                 return bloodMatch && pinMatch;
             });
 
@@ -1322,7 +1352,7 @@
         document.getElementById('no-donors').classList.add('hidden');
         document.getElementById('matched-pin-display').textContent = pin || '...';
         donors.forEach(d => {
-          const coords = PIN_COORDINATES[d.pinCode] || [12.9716, 77.5946];
+          const coords = getCoordsForPin(d.pinCode);
           const marker = L.marker(coords).addTo(donorMap);
           marker.bindPopup(`<b>${d.name}</b><br/>Type: ${d.bloodType || 'N/A'}<br/>Pin: ${d.pinCode}<br/>Phone: ${d.phone || 'N/A'}`);
 
@@ -1392,8 +1422,9 @@
         requestsArray.forEach(r => {
           // 2. Plot Request Marker on Map
           const pin = r.requestPinCode || r.pinCode;
-          if (pin && PIN_COORDINATES[pin] && donorMap) {
-               L.marker(PIN_COORDINATES[pin], { icon: yellowIcon })
+          if (pin && donorMap){
+            const coords=getCoordsForPin(pin)
+               L.marker(coords, { icon: yellowIcon })
                 .addTo(donorMap)
                 .bindPopup(`<b>REQUEST: ${r.bloodTypeNeeded}</b><br/>Hospital: ${r.name}<br/>Pin: ${pin}`);
           }
