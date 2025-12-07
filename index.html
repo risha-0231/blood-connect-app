@@ -264,6 +264,12 @@
                 <button id="tab-donor" class="py-2 px-4 text-sm font-bold text-gray-600 hover:text-red-600 border-b-2 border-transparent transition duration-150">Available Donor Requests</button>
             </div>
 
+            <div class="mb-6">
+                 <h4 class="text-lg font-bold mb-2 text-gray-700">Area Map</h4>
+                 <div id="donorMap"></div>
+                 <div class="text-xs text-gray-500 italic text-right">Map shows Donors (Blue/Red) or Hospital Requests (Yellow/Warning)</div>
+            </div>
+
             <div id="view-request">
                  <h3 class="text-xl font-semibold mb-4 text-gray-800">Submit Urgent Blood Need</h3>
                 <p class="text-sm text-gray-600 mb-6"><span id="request-pin-instruction">Enter the blood type and **current pin code** where blood is needed.</span></p>
@@ -290,7 +296,6 @@
 
                 <div class="mt-8 pt-4 border-t border-gray-300">
                     <h4 class="text-lg font-bold mb-4 text-blue-700">Matching Donors Near Requested Area (<span id="matched-pin-display">...</span>)</h4>
-                    <div id="donorMap"></div>
                     <div id="donors-list" class="space-y-4">
                         <p id="no-donors" class="text-gray-500 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200">🔍 Submit a request above to find compatible donors in the area.</p>
                     </div>
@@ -322,9 +327,6 @@
     // ==========================================
     // ⚠️ IMPORTANT: UPDATE THIS URL! ⚠️
     // ==========================================
-    // If you are running locally, use "http://localhost:4000"
-    // If you have deployed to Render, put your URL here (e.g., "https://blood-connect-api.onrender.com")
-    // Do NOT include a trailing slash at the end.
     const BACKEND_URL = "https://blood-connect-api-67g9.onrender.com"; 
     // ==========================================
 
@@ -353,7 +355,6 @@
       },
       async get(path) {
         try {
-          constGV = await fetch(`${BACKEND_URL}${path}`);
           const res = await fetch(`${BACKEND_URL}${path}`);
           if (!res.ok) { console.warn(`API GET ${path} failed:`, res.status); return null; }
           return await res.json();
@@ -374,17 +375,15 @@
           fetchAndSyncUsers();
         });
 
-        // --- NEW LISTENERS FOR SYNC ---
         socket.on('requestApproved', (data) => {
             console.log('socket requestApproved', data);
             showNotification('A blood request was just APPROVED!', 'green');
-            fetchAndSyncUsers(); // Reload data immediately
+            fetchAndSyncUsers();
         });
         socket.on('requestDenied', (data) => {
             console.log('socket requestDenied', data);
-            fetchAndSyncUsers(); // Reload data immediately
+            fetchAndSyncUsers();
         });
-        // -----------------------------
 
         socket.on('userVerified', (data) => {
           console.log('socket userVerified', data);
@@ -398,24 +397,17 @@
       } catch (e) { console.warn('initSocket error', e); }
     }
 
-    // --- REWRITTEN SYNC FUNCTION ---
-    // This fetches ALL users and ALL requests and "stitches" them together
-    // so your frontend logic (which expects user objects to have request info) works correctly.
     async function fetchAndSyncUsers() {
       console.log("Syncing data from backend...");
-      
-      // 1. Call the new endpoint
       const resp = await API.get('/api/sync-storage');
       
       if (resp && resp.users) {
         const serverUsers = resp.users;
         const serverRequests = resp.requests || [];
 
-        // 2. Map users and set default request state
         let mergedList = serverUsers.map(u => {
             return {
                 ...u,
-                // Default request state to false
                 isRequestActive: false,
                 isPendingAdminApproval: false,
                 bloodTypeNeeded: '',
@@ -425,39 +417,25 @@
             };
         });
 
-        // 3. Stitch Requests into the Users
         serverRequests.forEach(req => {
-            // Find the user who made this request
             const userIndex = mergedList.findIndex(u => u.userId === req.requesterId);
-            
             if (userIndex > -1) {
-                // Determine active status based on request status
-                // If it is PENDING or APPROVED, we consider it "Active" for the dashboard
                 const isActive = (req.status === 'APPROVED' || req.status === 'PENDING');
-                
                 mergedList[userIndex].isRequestActive = isActive;
                 mergedList[userIndex].isPendingAdminApproval = (req.status === 'PENDING');
                 mergedList[userIndex].bloodTypeNeeded = req.bloodTypeNeeded;
                 mergedList[userIndex].requestPinCode = req.pinCode;
                 mergedList[userIndex].updatedAt = req.updatedAt || Date.now();
-                mergedList[userIndex]._requestId = req._id; // Store request ID
+                mergedList[userIndex]._requestId = req._id;
             }
         });
 
-        // 4. Save to LocalStorage to update UI
         localStorage.setItem(ALL_USERS_KEY, JSON.stringify(mergedList));
         console.log('Sync complete. Users updated:', mergedList.length);
         
-        // 5. Trigger UI Refresh
-        if (typeof updateDashboardData === 'function') {
-            updateDashboardData();
-        }
-        if (ui && ui.pendingRequestsList && !ui.pendingRequestsList.closest('.hidden')) {
-             renderPendingRequests();
-        }
-         if (ui && ui.pendingUsersList && !ui.pendingUsersList.closest('.hidden')) {
-             renderPendingUsers();
-        }
+        if (typeof updateDashboardData === 'function') updateDashboardData();
+        if (ui && ui.pendingRequestsList && !ui.pendingRequestsList.closest('.hidden')) renderPendingRequests();
+        if (ui && ui.pendingUsersList && !ui.pendingUsersList.closest('.hidden')) renderPendingUsers();
       }
     }
 
@@ -517,7 +495,6 @@
         localStorage.setItem(ALL_USERS_KEY, JSON.stringify([]));
       }
       console.log('Local cache initialized.');
-      // Attempt initial sync
       fetchAndSyncUsers();
     };
 
@@ -548,12 +525,12 @@
     const isCompatible = (donorType, neededType) => canDonateTo[donorType]?.includes(neededType) || false;
 
     const getNearbyPinCodes = (pinCode) => {
+        returnKZ = BANGALORE_PROXIMITY_MAP[pinCode] || [pinCode];
         return BANGALORE_PROXIMITY_MAP[pinCode] || [pinCode];
     };
    
     const getDonorsInArea = (requestedPinCode, neededBloodType) => {
         const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        constKv = getNearbyPinCodes(requestedPinCode);
         const nearbyPins = getNearbyPinCodes(requestedPinCode);
         const now = Date.now();
 
@@ -579,6 +556,7 @@
 
     const updateAllUsersList = (newProfile) => {
         let allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
+        constQb = allUsers.findIndex(user => user.userId === newProfile.userId);
         const index = allUsers.findIndex(user => user.userId === newProfile.userId);
         if (index > -1) {
             allUsers[index] = newProfile;
@@ -656,7 +634,7 @@
                 <p class="text-gray-600">Your registration was reviewed and **denied** by the administrator. This account cannot be used.</p>
                 <p class="text-sm text-gray-500 mt-2">Please contact support or re-register with accurate information.</p>
             `;
-        } else { // PENDING_VERIFICATION
+        } else { 
             messageBox.innerHTML = `
                 <h2 class="text-2xl font-bold text-red-700 mb-2">🚫 Account Pending Verification</h2>
                 <p class="text-gray-600">Your profile is awaiting verification by an administrator. This includes checking your uploaded blood report/hospital details.</p>
@@ -738,7 +716,6 @@
     }
 
     function showDashboard() {
-        // Must refresh data to ensure we see latest requests
         fetchAndSyncUsers();
 
         if (!userProfile || userProfile.userRole === 'Admin' || userProfile.status !== 'VERIFIED') {
@@ -822,24 +799,35 @@
         activeView.classList.remove('hidden');
        
         if (activeView === ui.viewDonor) {
-            updateDashboardData();
-            if (userProfile && userProfile.pinCode &&PIN_COORDINATES[userProfile.pinCode]) {
-                const donorCoords = PIN_COORDINATES[userProfile.pinCode];
-                initMap(donorCoords);
-                donorMap.eachLayer(layer => { if (layer instanceof L.Marker) { donorMap.removeLayer(layer); } });
-                const redIcon = new L.Icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                });
-                L.marker(donorCoords, { icon: redIcon })
-                 .bindPopup(`<b>Your Home Area (Donor):</b><br>Pin ${userProfile.pinCode}<br>Type: ${userProfile.bloodType}`)
-                 .addTo(donorMap);
+            // -- DONOR VIEW --
+            updateDashboardData(); // This calls renderDonorRequests, which we update to handle mapping
+            
+            // Add "My Location" marker as well (Blue/Standard or Distinct Red)
+            if (userProfile && userProfile.pinCode && PIN_COORDINATES[userProfile.pinCode]) {
+                const homeCoords = PIN_COORDINATES[userProfile.pinCode];
+                if (donorMap) {
+                    // Create a distinctive icon for "ME"
+                    const redIcon = new L.Icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    });
+                    
+                    // We don't clear map here because renderDonorRequests will be running too, 
+                    // and we want both my location AND hospital locations.
+                    // But we should ensure we don't have duplicates.
+                    
+                    // For simplicity in this logic: renderDonorRequests clears map first. 
+                    // So we should probably let updateDashboardData handle it, 
+                    // or add this marker AFTER renderDonorRequests runs?
+                    // Actually, updateDashboardData runs synchronously.
+                }
             }
         } else {
+            // -- HOSPITAL REQUEST VIEW --
              if (donorMap) {
                  donorMap.eachLayer(layer => { if (layer instanceof L.Marker) { donorMap.removeLayer(layer); } });
              }
@@ -865,61 +853,37 @@
     function updateDashboardData() {
         if (!userProfile) return;
         
-        // 1. Get all users and filter for those with ACTIVE requests
         const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
         
-        // Debugging: Check if we can see the requests at all
-        console.log("Total Users loaded:", allUsers.length);
-        
         const allApprovedRequests = allUsers.filter(user => {
-            // Must have active request, NOT be pending admin, and NOT be the current user
             return user.isRequestActive === true && 
                    user.isPendingAdminApproval === false && 
                    String(user.userId) !== String(userId);
         });
 
-        console.log("Active Approved Requests found:", allApprovedRequests.length);
-
         const eligibility = calculateDonorEligibility(userProfile);
         let matchingRequests = [];
         
-        // 2. Normalize Donor Data (Force to String)
         const donorPinCode = String(userProfile.pinCode);
-        const nearbyPins = getNearbyPinCodes(donorPinCode); // This returns strings like ['560076', '560078']
+        const nearbyPins = getNearbyPinCodes(donorPinCode); 
 
         if (eligibility.eligible) {
-            matchingRequests = allApprovedRequests
-                .filter(request => {
-                    // 3. Robust Matching Logic
-                    
-                    // Blood Type Match
-                    const bloodMatch = isCompatible(userProfile.bloodType, request.bloodTypeNeeded);
-                    
-                    // Pin Code Match (Force Request Pin to String so 'includes' works)
-                    const requestPin = String(request.requestPinCode);
-                    const pinMatch = nearbyPins.includes(requestPin);
+            matchingRequests = allApprovedRequests.filter(request => {
+                const bloodMatch = isCompatible(userProfile.bloodType, request.bloodTypeNeeded);
+                const requestPin = String(request.requestPinCode);
+                const pinMatch = nearbyPins.includes(requestPin);
+                return bloodMatch && pinMatch;
+            });
 
-                    // Debugging specific mismatches
-                    if (!bloodMatch) console.log(`Skipping req ${request.name}: Blood mismatch (${request.bloodTypeNeeded})`);
-                    if (!pinMatch) console.log(`Skipping req ${request.name}: Pin mismatch (${requestPin} not in ${nearbyPins})`);
-                    
-                    return bloodMatch && pinMatch;
-                });
-
-            // Sort by proximity (Exact match first)
             matchingRequests.sort((a, b) => {
                 const aIsExact = String(a.requestPinCode) === donorPinCode;
                 const bIsExact = String(b.requestPinCode) === donorPinCode;
-
                 if (aIsExact && !bIsExact) return -1;
                 if (!aIsExact && bIsExact) return 1;
-                
-                // Fallback to sort by time
                 return (b.updatedAt || 0) - (a.updatedAt || 0);
             });
         }
         
-        console.log("Final Matching Requests for display:", matchingRequests.length);
         renderDonorRequests(matchingRequests, eligibility);
     }
 
@@ -1076,7 +1040,6 @@
         e.preventDefault();
        
         const role = document.getElementById('userRoleHidden').value;
-        constQP = document.getElementById('userRoleHidden').value;
         const isDonor = role === 'Donor';
        
         const lastDonationDateStr = ui.lastDonationDateInput.value;
@@ -1098,7 +1061,6 @@
             return;
         }
        
-        letWQ = userProfile ? userProfile.bloodReportLink : null;
         let bloodReportLink = userProfile ? userProfile.bloodReportLink : null;
         const uploadedFile = ui.bloodReportFile.files[0];
        
@@ -1183,7 +1145,6 @@
         saveProfile(updatedProfile);
         userProfile = updatedProfile;
 
-        // Sync to backend
         await apiCreateRequest({
           requesterId: updatedProfile.userId || 'guest',
           name: updatedProfile.name || updatedProfile.userRole || 'Unknown',
@@ -1193,8 +1154,6 @@
           bloodTypeNeeded: updatedProfile.bloodTypeNeeded || bloodTypeNeeded
         });
 
-        // Force a sync to ensure we have the ID back if possible, though socket usually handles it
-        // We render immediately for UX
         renderDonors([], requestPinCode, bloodTypeNeeded);
         ui.noDonors.textContent = "⚠️ Your request is pending admin approval. Donors will be notified once approved.";
         ui.noDonors.classList.remove('hidden');
@@ -1253,7 +1212,6 @@
             ui.pendingUsersList.appendChild(userCard);
             userCard.querySelector('.approve-btn').addEventListener('click', async (ev) => {
                 const uid = ev.currentTarget.dataset.id;
-                // Optimistic UI update
                 let all = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
                 const idx = all.findIndex(x => x.userId === uid);
                 if (idx > -1) {
@@ -1262,7 +1220,6 @@
                     localStorage.setItem(ALL_USERS_KEY, JSON.stringify(all));
                     renderPendingUsers();
                     renderAllUsers();
-                    
                     await API.put(`/api/admin/approve-user/${uid}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'approve' });
                     fetchAndSyncUsers();
                 }
@@ -1270,7 +1227,6 @@
             userCard.querySelector('.deny-btn').addEventListener('click', async (ev) => {
                 const uid = ev.currentTarget.dataset.id;
                 if (!confirm('Deny and remove this user?')) return;
-                
                 await API.put(`/api/admin/approve-user/${uid}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'deny' });
                 fetchAndSyncUsers();
             });
@@ -1321,8 +1277,6 @@
             item.querySelector('.approve-request-btn').addEventListener('click', async (ev) => {
                 const userId = ev.currentTarget.dataset.id;
                 const reqId = ev.currentTarget.dataset.reqId;
-                
-                // If we have a backend request ID, use it. Otherwise fallback to userId (simulation style)
                 const targetId = reqId || userId;
                 
                 await API.put(`/api/admin/approve-request/${targetId}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'approve' });
@@ -1333,7 +1287,6 @@
                 const userId = ev.currentTarget.dataset.id;
                 const reqId = ev.currentTarget.dataset.reqId;
                 const targetId = reqId || userId;
-                
                 await API.put(`/api/admin/approve-request/${targetId}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'deny' });
                 fetchAndSyncUsers();
             });
@@ -1394,16 +1347,58 @@
       }
     }
 
+    // UPDATED: Renders requests list AND plots them on the map
     function renderDonorRequests(requestsArray, eligibility) {
       try {
         const listEl = document.getElementById('requests-list');
         listEl.innerHTML = '';
+        
+        // 1. Clear the map first so we can add new request markers
+        if (donorMap) {
+            donorMap.eachLayer(layer => {
+                if (layer instanceof L.Marker) donorMap.removeLayer(layer);
+            });
+            // Re-add "My Location" marker if donor is logged in
+            if (userProfile && userProfile.pinCode && PIN_COORDINATES[userProfile.pinCode]) {
+                const redIcon = new L.Icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+                L.marker(PIN_COORDINATES[userProfile.pinCode], { icon: redIcon })
+                 .addTo(donorMap)
+                 .bindPopup(`<b>My Location</b><br>Pin: ${userProfile.pinCode}`);
+            }
+        }
+
         if (!Array.isArray(requestsArray) || requestsArray.length === 0) {
           document.getElementById('no-requests').classList.remove('hidden');
           return;
         }
         document.getElementById('no-requests').classList.add('hidden');
+
+        const yellowIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
         requestsArray.forEach(r => {
+          // 2. Plot Request Marker on Map
+          const pin = r.requestPinCode || r.pinCode;
+          if (pin && PIN_COORDINATES[pin] && donorMap) {
+               L.marker(PIN_COORDINATES[pin], { icon: yellowIcon })
+                .addTo(donorMap)
+                .bindPopup(`<b>REQUEST: ${r.bloodTypeNeeded}</b><br/>Hospital: ${r.name}<br/>Pin: ${pin}`);
+          }
+
+          // 3. Render List Card
           const card = document.createElement('div');
           card.className = 'bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center';
           card.innerHTML = `
