@@ -642,12 +642,32 @@ function renderRequests(requests) {
   filtered.forEach(r => {
     const card = createElem('div','p-3 bg-white rounded shadow border');
     card.innerHTML = `<div class="flex justify-between items-start">
+
       <div>
         <div class="text-sm text-gray-500">Requested by: <strong>${escapeHTML(r.name || r.requesterName || 'Hospital')}</strong></div>
         <div class="text-lg font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
         <div class="text-xs text-gray-500">Status: ${(r.status || 'PENDING')}</div>
       </div>
     </div>`;
+    // HOSPITAL: show close button for own requests
+    if (userProfile && userProfile.userRole === "Hospital" && userProfile.userId === r.requesterId) {
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm";
+      closeBtn.textContent = "Close Request";
+      closeBtn.addEventListener("click", () => closeRequest(r._id));
+      card.appendChild(closeBtn);
+    }
+
+    // DONOR: show call hospital button
+    if (userProfile && userProfile.userRole === "Donor") {
+      const callBtn = document.createElement("button");
+      callBtn.className = "mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm";
+      callBtn.textContent = "Call Hospital";
+      callBtn.addEventListener("click", () => {
+        simulateCall(r.name || r.requesterName || "Hospital", r.phone);
+      });
+      card.appendChild(callBtn);
+    }
     list.appendChild(card);
   });
 }
@@ -781,6 +801,23 @@ async function adminApproveRequest(requestId, action) {
   showNotification('Action completed');
   fetchAndSyncInternal();
 }
+async function closeRequest(requestId) {
+  const confirmClose = confirm("Are you sure you want to close this request?");
+  if (!confirmClose) return;
+
+  const res = await API.put(`/request/close/${encodeURIComponent(requestId)}`, {
+    requesterId: userProfile.userId
+  });
+
+  if (!res.ok) {
+    showNotification("Failed to close request.");
+    return;
+  }
+
+  showNotification("Request closed successfully.");
+  fetchAndSyncInternal();
+}
+
 async function fetchAndRenderAdmin() {
   // fetch pending via admin protected endpoint
   const usersRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
@@ -791,6 +828,10 @@ async function fetchAndRenderAdmin() {
     showNotification('Could not load admin lists');
   }
 }
+function simulateCall(name, phone) {
+  alert(`📞 Simulating call to ${name} (${phone})...`);
+}
+
 
 /* Utility: escape text for DOM insertion */
 function escapeHTML(s) {
