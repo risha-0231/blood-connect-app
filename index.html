@@ -448,6 +448,17 @@ qs('profile-form').addEventListener('submit', async (e) => {
     const weight = parseFloat(qs('weight').value || '') || null;
     const pinCode = (qs('pinCode').value || '').toString();
     const bloodType = qs('bloodType').value || null;
+    // AGE & WEIGHT VALIDATION
+if (!age || age < 18 || age > 65) {
+  showNotification("Donor age must be between 18 and 65.");
+  return;
+}
+
+if (!weight || weight < 50) {
+  showNotification("Donor weight must be at least 50 kg.");
+  return;
+}
+
     if (!pinCode || !bloodType) {
       showNotification('Donor registration requires pin code and blood type.');
       return;
