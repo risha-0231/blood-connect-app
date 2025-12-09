@@ -631,6 +631,20 @@ function renderRequests(requests) {
   }
   // For donors: filter requests by their pin (if available)
   let filtered = requests;
+
+// Hide closed requests (both donor & hospital dashboards)
+filtered = filtered.filter(r => r.status !== "CLOSED");
+
+// Donors see only local requests
+if (userProfile && userProfile.userRole === "Donor") {
+  filtered = filtered.filter(r => r.pinCode === userProfile.pinCode);
+}
+
+// Hospitals see only their own requests
+if (userProfile && userProfile.userRole === "Hospital") {
+  filtered = filtered.filter(r => r.requesterId === userProfile.userId);
+}
+
   if (userProfile && userProfile.userRole === 'Donor' && userProfile.pinCode) {
     filtered = requests.filter(r => r.pinCode === userProfile.pinCode && (r.status === 'PENDING' || !r.status));
   }
