@@ -877,7 +877,47 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+// Pending Users tab
+qs("admin-tab-users")?.addEventListener("click", () => {
+  qs("admin-tab-users").classList.add("border-b-2","border-blue-600","text-blue-600");
+  qs("admin-tab-management").classList.remove("border-b-2","border-blue-600","text-blue-600");
+  qs("admin-tab-requests").classList.remove("border-b-2","border-blue-600","text-blue-600");
 
+  qs("admin-view-users").classList.remove("hidden");
+  qs("admin-view-management").classList.add("hidden");
+  qs("admin-view-requests").classList.add("hidden");
+});
+
+// All Users tab
+qs("admin-tab-management")?.addEventListener("click", () => {
+  qs("admin-tab-management").classList.add("border-b-2","border-blue-600","text-blue-600");
+  qs("admin-tab-users").classList.remove("border-b-2","border-blue-600","text-blue-600");
+  qs("admin-tab-requests").classList.remove("border-b-2","border-blue-600","text-blue-600");
+
+  qs("admin-view-management").classList.remove("hidden");
+  qs("admin-view-users").classList.add("hidden");
+  qs("admin-view-requests").classList.add("hidden");
+});
+
+// Pending Requests tab
+qs("admin-tab-requests")?.addEventListener("click", () => {
+  qs("admin-tab-requests").classList.add("border-b-2","border-blue-600","text-blue-600");
+  qs("admin-tab-users").classList.remove("border-b-2","border-blue-600","text-blue-600");
+  qs("admin-tab-management").classList.remove("border-b-2","border-blue-600","text-blue-600");
+
+  qs("admin-view-requests").classList.remove("hidden");
+  qs("admin-view-users").classList.add("hidden");
+  qs("admin-view-management").classList.add("hidden");
+});
+
+// Logout
+qs("admin-logout-btn")?.addEventListener("click", () => {
+  adminDashboard.classList.add("hidden");
+  roleSelection.classList.remove("hidden");
+  showNotification("Admin logged out.");
+});
+
+// ================= END OF ADMIN FIX =======================
 /* ---------- helpers to trigger donor search on hospital submit ---------- */
 qs('submit-request-btn')?.addEventListener('click', (ev)=> {
   // allow form submit to run first, then fetch donors for given pin/type
