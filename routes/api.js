@@ -188,6 +188,32 @@ module.exports = function(io) {
     }
   });
 
+  // Close a request (Hospital only)
+router.put("/request/close/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { requesterId } = req.body;
+
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    // Only the creator can close the request
+    if (request.requesterId !== requesterId) {
+      return res.status(403).json({ error: "Not allowed" });
+    }
+
+    request.status = "CLOSED";
+    await request.save();
+
+    return res.json({ success: true, request });
+  } catch (err) {
+    console.error("Close request error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
   // --- NEW: GLOBAL SYNC ENDPOINT ---
   router.get('/sync-storage', async (req, res) => {
     try {
