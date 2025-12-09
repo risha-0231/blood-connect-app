@@ -9,21 +9,70 @@
    
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-    <script src="https://cdn.socket.io/4.7.1/socket.io.min.js" integrity="" crossorigin="anonymous"></script>
-   
+    
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script> 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
-        .btn-primary { background-color: #e53e3e; transition: background-color 0.15s ease,wf transform 0.1s ease; }
-        .btn-primary:hover { background-color: #c53030; transform: translateY(-1px); }
-        .main-card { background-color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); width: 95%; max-width: 900px; }
-        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        #donorMap { height: 350px; width: 100%; border-radius: 0.75rem; border: 2px solid #e53e3e; margin-bottom: 1.5rem; z-index: 1; }
-        .role-bubble-card { transition: all 0.2s ease-in-out; cursor: pointer; border-radius: 1.5rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); min-height: 180px; }
-        .role-bubble-card:hover { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); transform: scale(1.03); }
-        .donor-bubble { background-color: #fee2e2; border: 3px solid #f87171; }
-        .hospital-bubble { background-color: #eff6ff; border: 3px solid #60a5fa; }
-        .admin-bubble { background-color: #f3f4f6; border: 3px solid #9ca3af; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+        /* Custom red button styling for primary actions */
+        .btn-primary {
+            background-color: #e53e3e;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+        }
+        .btn-primary:hover {
+            background-color: #c53030;
+            transform: translateY(-1px);
+        }
+        /* Main card styling - now fills more width */
+        .main-card {
+            background-color: #ffffff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            /* New: Wider card up to md screen, then constrained */
+            width: 95%;
+            max-width: 900px;
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* MAP CONTAINER STYLE */
+        #donorMap {
+            height: 350px;
+            width: 100%;
+            border-radius: 0.75rem;
+            border: 2px solid #e53e3e;
+            margin-bottom: 1.5rem;
+            z-index: 1;
+        }
+       
+        /* NEW: Bubble/Card Styling for Role Selection (using standard CSS to avoid editor warning) */
+        .role-bubble-card {
+            /* Full shadow and hover effect */
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border-radius: 1.5rem; /* rounded-3xl */
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); /* shadow-xl */
+            min-height: 180px;
+        }
+        .role-bubble-card:hover {
+             box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* shadow-2xl */
+             transform: scale(1.03);
+        }
+        .donor-bubble {
+            background-color: #fee2e2; /* Red-100 */
+            border: 3px solid #f87171; /* Red-400 */
+        }
+        .hospital-bubble {
+            background-color: #eff6ff; /* Blue-100 */
+            border: 3px solid #60a5fa; /* Blue-400 */
+        }
+        .admin-bubble {
+            background-color: #f3f4f6; /* Gray-100 */
+            border: 3px solid #9ca3af; /* Gray-400 */
+        }
     </style>
 </head>
 <body>
@@ -36,45 +85,60 @@
             <p class="text-gray-500 mt-2 text-xl font-semibold">Local Emergency Donor Matching System</p>
         </header>
 
+       
         <div id="global-message-box" class="fixed inset-x-0 top-0 z-50 p-4 transition-all duration-300 transform -translate-y-full opacity-0">
             <div id="global-message-content" class="p-3 rounded-lg shadow-xl text-center font-medium max-w-lg mx-auto"></div>
         </div>
 
         <div id="loading-state" class="text-center p-12">
-             <svg class="animate-spin h-10 w-10 text-red-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+             <svg class="animate-spin h-10 w-10 text-red-600 mx-auto mb-4"
+                  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
              </svg>
              <p class="text-red-500 font-semibold">Initializing app components...</p>
         </div>
-   
+       
         <div id="role-selection" class="text-center p-6 sm:p-8 space-y-6">
              <h2 class="text-3xl font-bold text-red-700 mb-8">Select Your Role</h2>
+             
              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+               
                  <button data-role="Donor" class="select-role-btn role-bubble-card donor-bubble flex flex-col items-center justify-center p-6 text-red-700">
-                      <svg class="w-12 h-12 mb-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2c0-.214-.076-.423-.22-.584m0 0a3.003 3.003 0 00-7.864-1.857M17 10v2a3 3 0 005.356 1.857M17 10v-2c0-.214-.076-.423-.22-.584M17 10v2a3 3 0 005.356 1.857M12 21a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2-1.343-2-3-2z"></path></svg>
+                      <svg class="w-12 h-12 mb-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2c0-.214-.076-.423-.22-.584m0 0a3.003 3.003 0 00-7.864-1.857M17 10v2a3 3 0 005.356 1.857M17 10v-2c0-.214-.076-.423-.22-.584M17 10v2a3 3 0 005.356 1.857M12 21a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2-1.343-2-3-2z"></path></svg>
                       <span class="text-xl font-extrabold">I am a Donor</span>
                       <span class="text-sm mt-1 text-gray-600">Volunteer to save lives locally.</span>
                  </button>
+                 
                  <button data-role="Hospital" class="select-role-btn role-bubble-card hospital-bubble flex flex-col items-center justify-center p-6 text-blue-700">
-                      <svg class="w-12 h-12 mb-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10h16V7a2 2 0 00-2-2H6a2 2 0 00-2 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v4m-2-2h4"></path></svg>
+                      <svg class="w-12 h-12 mb-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10h16V7a2 2 0 00-2-2H6a2 2 0 00-2 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v4m-2-2h4"></path></svg>
                       <span class="text-xl font-extrabold">I am a Hospital</span>
                       <span class="text-sm mt-1 text-gray-600">Submit urgent blood requirements.</span>
                  </button>
+                 
                  <button id="select-admin-role-btn" class="role-bubble-card admin-bubble flex flex-col items-center justify-center p-6 text-gray-800">
-                      <svg class="w-12 h-12 mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2v2m-4-2H7a2 2 0 00-2 2v4a2 2 0 002 2h4m2-4v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4a2 2 0 012-2h4"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 0h.01"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v2m0 0h.01"></path></svg>
+                      <svg class="w-12 h-12 mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2v2m-4-2H7a2 2 0 00-2 2v4a2 2 0 002 2h4m2-4v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4a2 2 0 012-2h4"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 0h.01"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v2m0 0h.01"></path></svg>
                       <span class="text-xl font-extrabold">Administrator Login</span>
                       <span class="text-sm mt-1 text-gray-600">Manage users and requests.</span>
                  </button>
+                 
              </div>
         </div>
        
         <div id="auth-selection" class="hidden text-center space-y-6 p-6 card shadow-none border-0 rounded-xl">
             <h2 class="text-3xl font-bold text-gray-800 mb-2">Welcome, <span id="auth-role-display" class="text-red-600"></span></h2>
             <p class="text-gray-600 text-base">Choose an action to proceed.</p>
-            <button id="auth-login-btn" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">Login</button>
-            <button id="auth-register-btn" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-4 focus:ring-red-300">Register</button>
+           
+            <button id="auth-login-btn" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">
+                Login
+            </button>
+           
+            <button id="auth-register-btn" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-4 focus:ring-red-300">
+                Register
+            </button>
+           
             <p class="text-sm text-gray-500 pt-2">Login is only possible after admin verification.</p>
+           
             <button type="button" id="auth-back-to-role" class="w-full text-sm text-gray-500 hover:text-red-500 mt-4">← Back to Role Selection</button>
         </div>
 
@@ -82,18 +146,21 @@
              <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3"><span id="login-role-display">User</span> Login</h2>
             <form id="user-login-form" class="space-y-4">
                  <div class="space-y-1">
-                   <label for="login-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                     <label for="login-name" class="block text-sm font-medium text-gray-700">Full Name</label>
                      <input type="text" id="login-name" required placeholder="John Doe" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
                  </div>
                  <div class="space-y-1">
                      <label for="login-phone" class="block text-sm font-medium text-gray-700">Phone Number (10 Digits)</label>
                      <input type="number" id="login-phone" required minlength="10" maxlength="10" placeholder="e.g., 9876543210" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
                  </div>
-                 <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">Login to Dashboard</button>
+                 <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">
+                     Login to Dashboard
+                 </button>
                  <button type="button" id="login-back-to-auth" class="w-full text-sm text-gray-500 hover:text-red-500 mt-2">← Back to Auth Menu</button>
                  <button type="button" id="login-back-to-role" class="hidden">← Back to Main Menu</button>
             </form>
         </div>
+
 
         <div id="admin-login" class="hidden">
              <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Administrator Login</h2>
@@ -102,7 +169,9 @@
                      <label for="admin-pin" class="block text-sm font-medium text-gray-700">Admin Key (Pin Code)</label>
                      <input type="password" id="admin-pin" required placeholder="Enter 6-digit Admin Key" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
                  </div>
-                 <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">Login as Administrator</button>
+                 <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">
+                     Login as Administrator
+                 </button>
                  <button type="button" id="admin-back-to-role" class="w-full text-sm text-gray-500 hover:text-red-500 mt-2">← Back to Main Menu</button>
             </form>
         </div>
@@ -111,7 +180,7 @@
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                  <h2 class="text-2xl font-bold text-gray-800"><span id="registration-role">New User</span> Registration</h2>
                  <button id="back-to-dashboard-from-edit" class="hidden text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100 flex items-center">
-                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                       Back to Dashboard
                  </button>
             </div>
@@ -138,7 +207,10 @@
                      <div class="space-y-1">
                          <label for="gender" class="block text-sm font-medium text-gray-700">Gender</label>
                          <select id="gender" required data-original-required="true" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 bg-white focus:ring-red-500 focus:border-red-500">
-                             <option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                             <option value="">Select</option>
+                             <option value="Male">Male</option>
+                             <option value="Female">Female</option>
+                             <option value="Other">Other</option>
                          </select>
                      </div>
                      <div class="space-y-1">
@@ -150,7 +222,7 @@
                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div class="space-y-1">
                          <label for="pinCode" class="block text-sm font-medium text-gray-700">Pin Code (6-Digit - Your Home Area)</label>
-                         <input type="number" id="pinCode" required data-original-required="true" min="100000" max="999999" placeholder="e.g., 560078" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
+                         <input type="number" id="pinCode" required data-original-required="true" min="100000" max="999999" placeholder="e.g., 560078 (JP Nagar)" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
                      </div>
                      <div class="space-y-1 donor-only-field">
                          <label for="bloodType" class="block text-sm font-medium text-gray-700">Blood Type</label>
@@ -158,7 +230,7 @@
                              <option value="">Select Blood Type</option>
                              <option value="A+">A+</option><option value="A-">A-</option>
                              <option value="B+">B+</option><option value="B-">B-</option>
-                             <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                             <option value="AB+">AB+)</option><option value="AB-">AB-</option>
                              <option value="O+">O+</option><option value="O-">O-</option>
                          </select>
                      </div>
@@ -170,8 +242,11 @@
                  </div>
                  
                  <h3 class="text-lg font-bold text-red-700 pt-4 border-t border-red-200"><span id="verification-title">Verification & Donation History</span></h3>
+                 
                  <div class="space-y-1 p-3 bg-red-50 rounded-lg border border-red-200 donor-only-field">
-                     <label for="bloodReportFile" class="block text-sm font-bold text-red-800">Upload Latest Blood Report (PDF only) <span class="text-xs font-normal text-gray-600">(Mandatory for Admin Verification)</span></label>
+                     <label for="bloodReportFile" class="block text-sm font-bold text-red-800">
+                         Upload Latest Blood Report (PDF only) <span class="text-xs font-normal text-gray-600">(Mandatory for Admin Verification)</span>
+                     </label>
                      <input type="file" id="bloodReportFile" required data-original-required="true" accept="application/pdf" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-100 file:text-red-700 hover:file:bg-red-200">
                  </div>
 
@@ -182,10 +257,14 @@
                  
                  <div class="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                      <input type="checkbox" id="verification-check" required data-original-required="true" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                     <label for="verification-check" class="text-sm font-medium text-blue-800">I verify all provided data is accurate and can be shared for emergency contact.</label>
+                     <label for="verification-check" class="text-sm font-medium text-blue-800">
+                         I verify all provided data is accurate and can be shared for emergency contact.
+                     </label>
                  </div>
                  
-                 <button type="submit" id="save-profile-btn" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">Register & Await Verification</button>
+                 <button type="submit" id="save-profile-btn" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">
+                     Register & Await Verification
+                 </button>
                  <button type="button" id="signup-back-to-role" class="w-full text-sm text-gray-500 hover:text-red-500 mt-2">← Back to Main Menu</button>
             </form>
         </div>
@@ -196,13 +275,17 @@
                  <p class="text-gray-600">Your profile is awaiting verification by an administrator. This includes checking your uploaded blood report/hospital details.</p>
                  <p class="text-sm text-gray-500 mt-2">Please check back later, or try to login again once verified.</p>
              </div>
-             <button id="blocked-logout-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">Back to Main Menu</button>
+             <button id="blocked-logout-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">
+                 Back to Main Menu
+             </button>
         </div>
        
         <div id="admin-dashboard" class="hidden">
              <div class="flex justify-between items-center mb-6 border-b pb-3">
                  <h2 class="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
-                 <button id="admin-logout-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">Logout</button>
+                 <button id="admin-logout-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">
+                     Logout
+                 </button>
              </div>
              
              <div class="flex space-x-2 mb-6 border-b border-gray-200">
@@ -214,730 +297,437 @@
              <div id="admin-view-users">
                  <h3 class="text-xl font-semibold mb-4 text-gray-800">Pending User Verifications</h3>
                  <div id="pending-users-list" class="space-y-4">
-                     <p id="no-pending-users" class="text-gray-500 text-center p-6 bg-green-50 rounded-lg border border-green-200 hidden">✅ All current users are verified.</p>
+                     <p id="no-pending-users" class="text-gray-500 text-center p-6 bg-green-50 rounded-lg border border-green-200 hidden">
+                         ✅ All current users are verified.
+                     </p>
                  </div>
              </div>
              
              <div id="admin-view-management" class="hidden">
                  <h3 class="text-xl font-semibold mb-4 text-gray-800">Donor and Hospital Accounts</h3>
                  <div id="all-users-list" class="space-y-4">
-                      <p id="no-users-to-manage" class="text-gray-500 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200 hidden">No users found (excluding admin).</p>
+                      <p id="no-users-to-manage" class="text-gray-500 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200 hidden">
+                          No users...
+                      </p>
                  </div>
              </div>
-
+             
              <div id="admin-view-requests" class="hidden">
-                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Urgent Requests Pending Approval</h3>
+                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Requests Awaiting Approval</h3>
                  <div id="pending-requests-list" class="space-y-4">
-                     <p id="no-pending-requests" class="text-gray-500 text-center p-6 bg-green-50 rounded-lg border border-green-200 hidden">✅ No blood requests are currently awaiting approval.</p>
+                      <p id="no-pending-requests" class="text-gray-500 text-center p-6 bg-green-50 rounded-lg border border-green-200 hidden">
+                          ✅ No requests are currently pending administrative approval.
+                      </p>
                  </div>
              </div>
         </div>
        
         <div id="main-dashboard" class="hidden">
-           
             <div class="flex justify-between items-center mb-6 border-b pb-3">
-                <h2 class="text-2xl font-bold text-gray-800">Dashboard (<span id="dashboard-role-display">Donor</span>)</h2>
-                <div class="flex space-x-3">
-                    <button id="edit-profile-btn" class="text-sm text-gray-500 hover:text-blue-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">Edit Profile</button>
-                    <button id="delete-account-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">Delete Profile</button>
-                    <button id="logout-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">Logout</button>
-                </div>
+                 <h2 class="text-2xl font-bold text-gray-800">
+                     <span id="dashboard-role-display" class="text-red-600"></span> Dashboard
+                 </h2>
+                 <div class="flex items-center space-x-3">
+                    <button id="edit-profile-btn" class="text-sm text-blue-600 hover:text-blue-800 transition duration-150 p-2 rounded-full hover:bg-blue-50 flex items-center">
+                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                         Edit Profile
+                    </button>
+                    <button id="delete-account-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-red-50">
+                         Delete Account
+                    </button>
+                    <button id="dashboard-logout-btn" class="text-sm text-gray-500 hover:text-red-500 transition duration-150 p-2 rounded-full hover:bg-gray-100">
+                         Logout
+                    </button>
+                 </div>
             </div>
 
-            <div class="mt-6">
-              <h2 class="text-lg font-bold mb-2">My Requests</h2>
-              <div id="no-open-requests" class="text-gray-500 text-sm my-2 hidden">You have no active blood requests.</div>
-              <div id="my-requests-list" class="flex flex-col gap-3"></div>
-            </div>
-           
-            <div id="donor-status-section" class="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200">
-                <p class="text-lg font-bold text-red-700 flex items-center">
-                    <span class="mr-2">Donor Status:</span>
-                    <span id="donor-status"></span>
-                </p>
-                <p class="text-sm text-gray-700 mt-1">Home Pin Code: <code id="user-pin-display" class="font-mono text-base text-red-600 font-bold"></code></p>
-                <p class="text-xs text-gray-500">Blood Type: <code id="user-blood-display" class="font-mono text-xs font-semibold"></code></p>
+            <div class="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <p class="text-lg font-semibold text-gray-700">Profile Details:</p>
+                <p class="text-sm text-gray-600">Pin Code: <span id="user-pin-display" class="font-bold text-red-700">N/A</span></p>
+                <p class="text-sm text-gray-600">Blood Type: <span id="user-blood-display" class="font-bold text-red-700">N/A</span></p>
+                
+                <div id="donor-status-section" class="mt-3 donor-only-field">
+                     <p class="text-sm font-semibold text-gray-800">Donation Eligibility Status:</p>
+                     <p id="donor-status" class="text-base font-bold text-green-600">VERIFIED & ELIGIBLE</p>
+                </div>
             </div>
 
             <div class="flex space-x-2 mb-6 border-b border-gray-200">
-                <button id="tab-request" class="py-2 px-4 text-sm font-bold text-red-600 border-b-2 border-red-600 transition duration-150">Request Blood & Find Donors</button>
-                <button id="tab-donor" class="py-2 px-4 text-sm font-bold text-gray-600 hover:text-red-600 border-b-2 border-transparent transition duration-150">Available Donor Requests</button>
-            </div>
-
-            <div class="mb-6">
-                 <h4 class="text-lg font-bold mb-2 text-gray-700">Area Map</h4>
-                 <div id="donorMap"></div>
-                 <div class="text-xs text-gray-500 italic text-right">Map shows Donors (Blue/Red) or Hospital Requests (Yellow/Warning)</div>
+                 <button id="tab-request" class="py-2 px-4 text-sm font-bold text-red-600 border-b-2 border-red-600 transition duration-150">Submit/Track Request</button>
+                 <button id="tab-donor" class="py-2 px-4 text-sm font-bold text-gray-600 hover:text-red-600 border-b-2 border-transparent transition duration-150">Requests Near Me</button>
             </div>
 
             <div id="view-request">
-                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Submit Urgent Blood Need</h3>
-                <p class="text-sm text-gray-600 mb-6"><span id="request-pin-instruction">Enter the blood type and **current pin code** where blood is needed.</span></p>
-
-                <form id="request-form" class="space-y-4 p-6 bg-gray-50 rounded-xl">
-                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div id="request-pin-group">
-                             <label for="request-pinCode" class="block text-sm font-medium text-gray-700">Current Area Pin Code (Where Blood is Needed)</label>
-                             <input type="number" id="request-pinCode" required data-original-required="true" min="100000" max="999999" placeholder="e.g., 560078" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
-                         </div>
-                         <div>
-                             <label for="bloodTypeNeeded" class="block text-sm font-medium text-gray-700">Blood Type Needed</label>
-                             <select id="bloodTypeNeeded" required data-original-required="true" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 bg-white focus:ring-red-500 focus:border-red-500">
-                                 <option value="">Select Blood Type</option>
-                                 <option value="A+">A+</option><option value="A-">A-</option>
-                                 <option value="B+">B+</option><option value="B-">B-</option>
-                                 <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                                 <option value="O+">O+</option><option value="O-">O-</option>
-                             </select>
-                         </div>
+                 <div id="my-requests-section">
+                     <h3 class="text-xl font-semibold mb-4 text-gray-800">My Open Requests (Tracking)</h3>
+                     <div id="my-requests-list" class="space-y-4">
+                         <p id="no-open-requests" class="text-gray-500 text-center p-6 bg-blue-50 rounded-lg border border-blue-200 hidden">
+                             No open requests currently being tracked.
+                         </p>
                      </div>
-                     <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">Submit Request & Find Nearby Donors</button>
-                </form>
-
-                <div class="mt-8 pt-4 border-t border-gray-300">
-                    <h4 class="text-lg font-bold mb-4 text-blue-700">Matching Donors Near Requested Area (<span id="matched-pin-display">...</span>)</h4>
-                    <div id="donors-list" class="space-y-4">
-                        <p id="no-donors" class="text-gray-500 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200">🔍 Submit a request above to find compatible donors in the area.</p>
-                    </div>
-                </div>
+                 </div>
+                 
+                 <div id="new-request-section" class="mt-8 border-t pt-6">
+                     <h3 class="text-xl font-semibold mb-2 text-red-700">Submit A New Request</h3>
+                     <p class="text-sm text-gray-600 mb-4"><span id="request-location-text">Specify **blood type** and **current pin code** where blood is needed.</span></p>
+                     
+                     <form id="request-form" class="space-y-4 p-6 bg-gray-50 rounded-xl">
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div id="request-pin-group">
+                                 <label for="request-pinCode" class="block text-sm font-medium text-gray-700">Current Area Pin Code (Where Blood is Needed)</label>
+                                 <input type="number" id="request-pinCode" required data-original-required="true" min="100000" max="999999" placeholder="e.g., 560078" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 focus:ring-red-500 focus:border-red-500">
+                             </div>
+                             <div>
+                                 <label for="bloodTypeNeeded" class="block text-sm font-medium text-gray-700">Blood Type Needed</label>
+                                 <select id="bloodTypeNeeded" required data-original-required="true" class="mt-1 block w-full rounded-md shadow-sm p-3 border border-gray-300 bg-white focus:ring-red-500 focus:border-red-500">
+                                     <option value="">Select Blood Type</option>
+                                     <option value="A+">A+</option><option value="A-">A-</option>
+                                     <option value="B+">B+</option><option value="B-">B-</option>
+                                     <option value="AB+">AB+)</option><option value="AB-">AB-</option>
+                                     <option value="O+">O+</option><option value="O-">O-</option>
+                                     <option value="Any">Any Type (Universal)</option>
+                                 </select>
+                             </div>
+                         </div>
+                         <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-xl shadow-md text-base font-bold text-white btn-primary focus:outline-none focus:ring-4 focus:ring-red-300">
+                             Submit Request & Find Nearby Donors
+                         </button>
+                     </form>
+                 </div>
+                 
+                 <div id="matching-donors-section" class="mt-8 border-t pt-6 hidden">
+                     <h3 class="text-xl font-semibold mb-4 text-gray-800">Matching Donors Near Request Location</h3>
+                     <div id="map-container" class="mb-4">
+                        <div id="donorMap"></div>
+                     </div>
+                     <p class="text-sm text-gray-500 mb-4">Click "Contact Donor" to send them an alert and their details will appear here.</p>
+                     <div id="donors-list" class="space-y-4">
+                          <p id="no-matching-donors" class="text-gray-500 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200 hidden">
+                              Searching... No matching eligible donors found near the requested pin code (yet).
+                          </p>
+                     </div>
+                 </div>
             </div>
-
+            
             <div id="view-donor" class="hidden">
-                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Emergency Matches in Your Area</h3>
-                <div id="requests-list" class="space-y-4">
-                    <p id="no-requests" class="text-gray-500 text-center p-6 bg-green-50 rounded-lg border border-green-200 hidden">✅ No active matching requests in your vicinity right now.</p>
-                    <p id="not-donor-message" class="text-gray-700 text-center p-6 bg-yellow-50 rounded-lg border border-yellow-200 hidden">You are currently marked as **Ineligible to Donate**. Update your profile for eligibility status.</p>
-                </div>
+                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Urgent Requests in Your Area</h3>
+                 <div id="map-container-donor" class="mb-4">
+                    <div id="donorMapRequests"></div>
+                 </div>
+                 <div id="requests-list" class="space-y-4">
+                     <p id="not-donor-message" class="text-gray-500 text-center p-6 bg-red-100 rounded-lg border border-red-300 hidden"></p>
+                     <p id="no-requests" class="text-gray-500 text-center p-6 bg-green-50 rounded-lg border border-green-200 hidden">
+                         😊 No urgent, admin-approved blood requests in your area or compatible with your blood type right now.
+                     </p>
+                 </div>
             </div>
-           
-            <div id="my-requests-section" class="mt-8 pt-4 border-t border-gray-300 hidden">
-                <h4 class="text-lg font-semibold mb-3">Your Open Requests / Match Notifications</h4>
-                <div id="my-requests-list" class="space-y-3">
-                    <p class="text-sm text-gray-500" id="no-open-requests">You have no open requests or pending match notifications.</p>
-                </div>
-            </div>
+
         </div>
-        <div id="profile-management" class="hidden"></div>
+    </div>
+</div>
+
+<div id="map-legend" class="fixed bottom-0 right-0 p-3 m-3 bg-white rounded-lg shadow-xl text-xs space-y-1 z-10" style="z-index: 1000; width: 150px;">
+    <p class="font-bold">Map Legend</p>
+    <div class="flex items-center space-x-2">
+        <span class="inline-block w-3 h-3 rounded-full bg-red-600"></span>
+        <span>Your Location (Donor)</span>
+    </div>
+    <div class="flex items-center space-x-2">
+        <span class="inline-block w-3 h-3 rounded-full bg-blue-600"></span>
+        <span>Request Location</span>
     </div>
 </div>
 
 <script>
-    // --- APP LOGIC ---
+    // =========================================================================
+    // FRONTEND APPLICATION LOGIC (NOW CONNECTED TO MONGO DB/EXPRESS BACKEND)
+    // = ALL localStorage LOGIC HAS BEEN REPLACED BY ASYNC API FETCH CALLS
+    // =========================================================================
+
+    // --- START: BACKEND CONFIGURATION & API HELPERS ---
     
-    // ==========================================
-    // ⚠️ IMPORTANT: UPDATE THIS URL! ⚠️
-    // ==========================================
-    const BACKEND_URL = "https://blood-connect-api-67g9.onrender.com"; 
-    // ==========================================
+    const BACKEND_BASE_URL = 'https://blood-connect-api-67g9.onrender.com'; // *** IMPORTANT: REPLACE WITH YOUR DEPLOYED URL ***
+    const API_URL = `${BACKEND_BASE_URL}/api`;
 
-    const API = {
-      async post(path, body) {
-        try {
-          const res = await fetch(`${BACKEND_URL}${path}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) { console.warn(`API POST ${path} failed:`, res.status); return null; }
-          return await res.json();
-        } catch (e) { console.warn('API POST error', e); return null; }
-      },
-      async put(path, body) {
-        try {
-          const res = await fetch(`${BACKEND_URL}${path}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) { console.warn(`API PUT ${path} failed:`, res.status); return null; }
-          return await res.json();
-        } catch (e) { console.warn('API PUT error', e); return null; }
-      },
-      async get(path) {
-        try {
-          const res = await fetch(`${BACKEND_URL}${path}`);
-          if (!res.ok) { console.warn(`API GET ${path} failed:`, res.status); return null; }
-          return await res.json();
-        } catch (e) { console.warn('API GET error', e); return null; }
-      }
-    };
-
-    let socket = null;
-    function initSocket() {
-      try {
-        if (!window.io) { console.warn('Socket.io client not loaded.'); return; }
-        socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
-        socket.on('connect', () => console.log('Socket connected:', socket.id));
-        
-        socket.on('newRequest', (data) => {
-          console.log('socket newRequest', data);
-          showNotification('New emergency request received (from server).', 'blue');
-          fetchAndSyncUsers();
-        });
-
-        socket.on('requestApproved', (data) => {
-            console.log('socket requestApproved', data);
-            showNotification('A blood request was just APPROVED!', 'green');
-            fetchAndSyncUsers();
-        });
-        socket.on('requestDenied', (data) => {
-            console.log('socket requestDenied', data);
-            fetchAndSyncUsers();
-        });
-
-        socket.on('userVerified', (data) => {
-          console.log('socket userVerified', data);
-          showNotification('User verification changed by admin.', 'green');
-          fetchAndSyncUsers();
-        });
-        socket.on('userRegistered', (data) => {
-          console.log('socket userRegistered', data);
-          fetchAndSyncUsers();
-        });
-      } catch (e) { console.warn('initSocket error', e); }
-    }
-
-    async function fetchAndSyncUsers() {
-      console.log("Syncing data from backend...");
-      const resp = await API.get('/api/sync-storage');
-      
-      if (resp && resp.users) {
-        const serverUsers = resp.users;
-        const serverRequests = resp.requests || [];
-
-        let mergedList = serverUsers.map(u => {
-            return {
-                ...u,
-                isRequestActive: false,
-                isPendingAdminApproval: false,
-                bloodTypeNeeded: '',
-                requestPinCode: '',
-                donorMatch: null, 
-                userId: u.userId || u._id 
-            };
-        });
-
-        serverRequests.forEach(req => {
-            const userIndex = mergedList.findIndex(u => u.userId === req.requesterId);
-            if (userIndex > -1) {
-                const isActive = (req.status === 'APPROVED' || req.status === 'PENDING');
-                mergedList[userIndex].isRequestActive = isActive;
-                mergedList[userIndex].isPendingAdminApproval = (req.status === 'PENDING');
-                mergedList[userIndex].bloodTypeNeeded = req.bloodTypeNeeded;
-                mergedList[userIndex].requestPinCode = req.pinCode;
-                mergedList[userIndex].updatedAt = req.updatedAt || Date.now();
-                mergedList[userIndex]._requestId = req._id;
-            }
-        });
-
-        localStorage.setItem(ALL_USERS_KEY, JSON.stringify(mergedList));
-        console.log('Sync complete. Users updated:', mergedList.length);
-        
-        if (typeof updateDashboardData === 'function') updateDashboardData();
-        if (ui && ui.pendingRequestsList && !ui.pendingRequestsList.closest('.hidden')) renderPendingRequests();
-        if (ui && ui.pendingUsersList && !ui.pendingUsersList.closest('.hidden')) renderPendingUsers();
-      }
-    }
-
-    async function apiRegisterProfile(profile) {
-      const body = { ...profile };
-      const resp = await API.post('/api/auth/register', body);
-      if (resp && resp.user) {
-        updateAllUsersList(resp.user);
-        console.log('Profile merged with backend user.');
-      }
-    }
-
-    async function apiCreateRequest(requestObj) {
-      const resp = await API.post('/api/request', requestObj);
-      if (resp && resp.request) {
-        console.log('Request created on backend:', resp.request);
-        showNotification('Request sent to backend.', 'green');
-      }
-    }
-
-    setTimeout(initSocket, 800);
-
-    const USER_PROFILE_KEY = 'blood_connect_user_profile';
-    const ALL_USERS_KEY = 'blood_connect_all_users';
-    const DONATION_COOLDOWN_DAYS = 90;
-    const DONATION_COOLDOWN_MS = DONATION_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
-    const ADMIN_KEY = '999999';
+    // Initialize Socket.IO connection
+    const socket = io(BACKEND_BASE_URL); 
 
     let userProfile = null;
-    let userId = localStorage.getItem('local_user_id') || crypto.randomUUID();
-    localStorage.setItem('local_user_id', userId);
-    let currentSelectedRole = null;
-   
-    const BANGALORE_PROXIMITY_MAP = {
-        '560078': ['560078', '560076', '560041', '560083'],
-        '560066': ['560066', '560037', '560048', '560087'],
-        '560001': ['560001', '560002', '560005', '560008'],
-        '560037': ['560037', '560066', '560048'],
-        '560041': ['560041', '560076', '560078'],
-        '560076': ['560076', '560078', '560041'],
-    };
+    // We keep a local ID for persistent login and API tracking
+    let userId = localStorage.getItem('local_user_id'); 
+    let allUsers = []; // Data structure to hold all users fetched by Admin
+    let pendingRequests = []; // Data structure to hold all pending requests fetched by Admin
+
+
+    // Helper: Pin Code Coordinates (Simulated for Map)
     const PIN_COORDINATES = {
-        '560078': [12.903, 77.580],
-        '560041': [12.915, 77.603],
-        '560066': [12.978, 77.753],
-        '560001': [12.980, 77.595],
-        '560076': [12.923, 77.585],
-        '560083': [12.890, 77.570],
-        '560037': [12.985, 77.700],
+        '560078': [12.9103, 77.5818], // JP Nagar
+        '560037': [12.9698, 77.7500], // Whitefield/Hoodi
+        '560041': [12.9165, 77.6101], // BTM Layout
+        '560001': [12.9716, 77.5946], // Majestic/CBD
+        '560010': [12.9348, 77.6253], // Koramangala
+        '560093': [12.9244, 77.6750], // Marathahalli
+        // Add more for better simulation
+        '560002': [12.9900, 77.6000], // Shivajinagar
+        '560005': [13.0000, 77.5700], // Vasanth Nagar
+        '560008': [13.0100, 77.5600], // Malleswaram
+        '560066': [12.9500, 77.7600], // Kadugodi
+        '560048': [12.9700, 77.7700], // EPIP Area
+        '560076': [12.9000, 77.5700], // Jayanagar
+        '560068': [12.9400, 77.7000], // Kundalahalli
     };
 
-    // Add this helper function immediately after the PIN_COORDINATES const object
-    const getCoordsForPin = (pin) => {
-        const pinStr = String(pin);
-        if (PIN_COORDINATES[pinStr]) {
-            return PIN_COORDINATES[pinStr];
-        }
-        // Fallback: Return a coordinate slightly offset from Bangalore Center
-        // so it at least appears on the map (Simulated Location)
-        const offset = (Math.random() - 0.5) * 0.05;
-        return [12.9716 + offset, 77.5946 + offset];
-    };
-   
-    let donorMap = null;
-
-    const seedSampleData = () => {
-      const existing = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-      if (!existing || existing.length === 0) {
-        localStorage.setItem(ALL_USERS_KEY, JSON.stringify([]));
-      }
-      console.log('Local cache initialized.');
-      fetchAndSyncUsers();
+    // Helper: Find Nearby Pin Codes (Simulated)
+    const NEARBY_PINS = {
+        '560078': ['560078', '560041', '560076', '560010'], // JP Nagar, BTM, Jayanagar, K'mangala
+        '560037': ['560037', '560066', '560048', '560093'], // Hoodi, Kadugodi, EPIP, Marathahalli
+        '560041': ['560041', '560076', '560078', '560010'], // BTM Layout, JP Nagar
+        '560001': ['560001', '560002', '560005', '560008'], // CBD, Shivajinagar, Vasanth Nagar
+        '560010': ['560010', '560041', '560078'], // Koramangala
+        '560093': ['560093', '560037', '560068'], // Marathahalli
     };
 
-    const showNotification = (message, type = 'blue') => {
-        const box = document.getElementById('global-message-box');
-        const content = document.getElementById('global-message-content');
-        content.className = 'p-3 rounded-lg shadow-xl text-center font-medium max-w-lg mx-auto';
-        content.classList.add(`bg-${type}-600`, 'text-white');
-        content.textContent = message;
-        box.classList.remove('-translate-y-full', 'opacity-0');
-        box.classList.add('translate-y-0', 'opacity-100');
-        setTimeout(() => {
-            box.classList.remove('translate-y-0', 'opacity-100');
-            box.classList.add('-translate-y-full', 'opacity-0');
-        }, 5000);
-    };
 
-    const canDonateTo = {
-        'O-': ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'],
-        'O+': ['O+', 'A+', 'B+', 'AB+'],
-        'A-': ['A-', 'A+', 'AB-', 'AB+'],
-        'A+': ['A+', 'AB+'],
-        'B-': ['B-', 'B+', 'AB-', 'AB+'],
-        'B+': ['B+', 'AB+'],
-        'AB-': ['AB-', 'AB+'],
-        'AB+': ['AB+']
-    };
-    const isCompatible = (donorType, neededType) => canDonateTo[donorType]?.includes(neededType) || false;
+    // --- API FETCH HELPERS (Replaces localStorage functions) ---
 
-    const getNearbyPinCodes = (pinCode) => {
-        // Force input to string to match the keys in the object
-        const pinStr = String(pinCode);
-        return BANGALORE_PROXIMITY_MAP[pinStr] || [pinStr];
-    };
-   
-    const getDonorsInArea = (requestedPinCode, neededBloodType) => {
-        const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        // FORCE STRING:
-        const reqPinString = String(requestedPinCode); 
-        const nearbyPins = getNearbyPinCodes(reqPinString);
-        const now = Date.now();
-
-        const matchingDonors = allUsers.filter(donor => {
-            if (donor.userId === userId || donor.userRole !== 'Donor') return false;
-            if (donor.status !== 'VERIFIED') return false;
-            
-            // Check eligibility
-            const isEligible = (donor.weight >= 50 && donor.age >= 18 && donor.age <= 65) &&
-                             (donor.lastDonationTime + DONATION_COOLDOWN_MS < now);
-            
-            // FORCE STRING COMPARISON for Pin Codes:
-            const donorPinString = String(donor.pinCode);
-            const isPinMatch = nearbyPins.includes(donorPinString);
-
-            return isEligible &&
-                   isCompatible(donor.bloodType, neededBloodType) &&
-                   isPinMatch;
+    // Helper for POST requests
+    async function postData(endpoint, data) {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': userId 
+            },
+            body: JSON.stringify(data)
         });
-
-        matchingDonors.sort((a, b) => {
-            const aIsExact = String(a.pinCode) === reqPinString;
-            const bIsExact = String(b.pinCode) === reqPinString;
-            if (aIsExact && !bIsExact) return -1;
-            if (!aIsExact && bIsExact) return 1;  
-            return a.name.localeCompare(b.name);
-        });
-        return matchingDonors;
-    };
-
-
-    const updateAllUsersList = (newProfile) => {
-        let allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        constQb = allUsers.findIndex(user => user.userId === newProfile.userId);
-        const index = allUsers.findIndex(user => user.userId === newProfile.userId);
-        if (index > -1) {
-            allUsers[index] = newProfile;
-        } else {
-            allUsers.push(newProfile);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `API call failed for ${endpoint}: ${response.statusText}`);
         }
-        localStorage.setItem(ALL_USERS_KEY, JSON.stringify(allUsers));
-    };
+        return response.json();
+    }
 
-    const saveProfile = (profile) => {
-        if (profile) {
-            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
-            userProfile = profile;
-            userId = profile.userId; 
-            localStorage.setItem('local_user_id', userId);
-            updateAllUsersList(profile);
-        } else {
-            localStorage.removeItem(USER_PROFILE_KEY);
-            localStorage.removeItem('local_user_id');
+    // Helper for GET requests
+    async function getData(endpoint, params = {}) {
+        const url = new URL(`${API_URL}${endpoint}`);
+        url.search = new URLSearchParams(params).toString();
+        const response = await fetch(url, {
+            headers: { 'X-User-ID': userId } 
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `API call failed for ${endpoint}: ${response.statusText}`);
+        }
+        return response.json();
+    }
+
+    // 1. Initial Profile Sync/Load
+    async function fetchAndSyncProfile() {
+        try {
+            if (!userId) {
+                // Generate a local ID if one doesn't exist
+                userId = crypto.randomUUID();
+                localStorage.setItem('local_user_id', userId);
+                userProfile = null;
+                return false;
+            }
+
+            // Endpoint to check for a registered user by local ID
+            const data = await getData(`/auth/sync-profile/${userId}`);
+            
+            if (data.user) {
+                 userProfile = data.user;
+                 return true;
+            } else {
+                 userProfile = null;
+                 // If the server doesn't know this userId, clear it and generate a new one next time.
+                 localStorage.removeItem('local_user_id'); 
+                 userId = crypto.randomUUID();
+                 localStorage.setItem('local_user_id', userId);
+                 return false;
+            }
+
+        } catch (error) {
+            console.error("Profile sync failed:", error.message);
             userProfile = null;
-            userId = null;
-        }
-    };
-
-    const loadProfile = () => {
-        const profileData = localStorage.getItem(USER_PROFILE_KEY);
-        if (profileData) {
-            userProfile = JSON.parse(profileData);
-            userId = userProfile.userId;
-        }
-    };
-
-    const hideAllViews = () => {
-        [ui.loading, ui.roleSelection, ui.userLogin, ui.adminLogin, ui.adminDashboard,
-         ui.userBlocked, ui.profileSetup, ui.mainDashboard, ui.authSelection].forEach(view => {
-            view.classList.add('hidden');
-        });
-    };
-
-    const logoutUser = () => {
-        saveProfile(null);
-        showRoleSelection();
-    };
-    const showRoleSelection = () => {
-        hideAllViews();
-        currentSelectedRole = null;
-        ui.roleSelection.classList.remove('hidden');
-    };
-    function showAuthSelection(role) {
-        hideAllViews();
-        currentSelectedRole = role;
-        ui.authRoleDisplay.textContent = role;
-        ui.authSelection.classList.remove('hidden');
-    }
-
-    function showUserLogin() {
-        hideAllViews();
-        ui.loginRoleDisplay.textContent = currentSelectedRole;
-        ui.userLogin.classList.remove('hidden');
-    }
-
-    function showAdminLogin() {
-        hideAllViews();
-        ui.adminLogin.classList.remove('hidden');
-    }
-
-    function showUserBlocked() {
-        hideAllViews();
-        ui.userBlocked.classList.remove('hidden');
-        const messageBox = ui.userBlocked.querySelector('.p-6');
-       
-        if (userProfile.status === 'DENIED') {
-            messageBox.innerHTML = `
-                <h2 class="text-2xl font-bold text-red-700 mb-2">❌ Account Denied</h2>
-                <p class="text-gray-600">Your registration was reviewed and **denied** by the administrator. This account cannot be used.</p>
-                <p class="text-sm text-gray-500 mt-2">Please contact support or re-register with accurate information.</p>
-            `;
-        } else { 
-            messageBox.innerHTML = `
-                <h2 class="text-2xl font-bold text-red-700 mb-2">🚫 Account Pending Verification</h2>
-                <p class="text-gray-600">Your profile is awaiting verification by an administrator. This includes checking your uploaded blood report/hospital details.</p>
-                <p class="text-sm text-gray-500 mt-2">Please check back later, or try to login again once verified.</p>
-            `;
+            return false;
         }
     }
 
-    function showAdminDashboard() {
-        hideAllViews();
-        ui.adminDashboard.classList.remove('hidden');
-        setActiveAdminTab(ui.adminTabUsers, ui.adminViewUsers);
-        renderPendingUsers();
-        renderPendingRequests();
+    // 2. Registration
+    async function registerProfile(profileData) {
+        return postData('/auth/register', profileData);
     }
 
-    const calculateDonorEligibility = (profile) => {
-        const now = Date.now();
-        if (profile.userRole !== 'Donor') {
-            return { eligible: false, status: 'N/A: Not a Donor Profile', color: 'text-gray-500' };
-        }
-        if (profile.status === 'DENIED') {
-             return { eligible: false, status: 'DENIED: Registration Permanently Rejected', color: 'text-red-700' };
-        }
-        if (profile.status !== 'VERIFIED') {
-            return { eligible: false, status: 'UNVERIFIED: Awaiting Admin Approval', color: 'text-red-500' };
-        }
-        if (!(profile.weight >= 50 && profile.age >= 18 && profile.age <= 65)) {
-            return { eligible: false, status: `INELIGIBLE: Age/Weight Restrictions (Min 18, Max 65, Min 50kg)`, color: 'text-red-600' };
-        }
-        if (profile.lastDonationTime) {
-            const nextDonationTime = profile.lastDonationTime + DONATION_COOLDOWN_MS;
-            if (nextDonationTime > now) {
-                const daysRemaining = Math.ceil((nextDonationTime - now) / (24 * 60 * 60 * 1000));
-                return { eligible: false, status: `COOLDOWN: ${daysRemaining} days remaining (Eligible: ${new Date(nextDonationTime).toLocaleDateString()})`, color: 'text-yellow-600' };
-            }
-        }
-        return { eligible: true, status: 'AVAILABLE for Donation', color: 'text-green-600' };
-    };
-
-    function showProfileSetup(isEdit = false) {
-        hideAllViews();
-        ui.profileSetup.classList.remove('hidden');
-        ui.backToDashboardFromEditBtn.classList.toggle('hidden', !isEdit);
-        document.getElementById('save-profile-btn').textContent = isEdit ? 'Update Profile' : 'Register & Await Verification';
-        document.getElementById('signup-back-to-role').classList.toggle('hidden', isEdit);
-        const role = currentSelectedRole || (userProfile ? userProfile.userRole : "Donor");
-        const isDonor = role === 'Donor';
-       
-        document.getElementById('registration-role').textContent = isEdit ? "Edit " + role + " Profile" : "New " + role;
-        document.getElementById('userRoleHidden').value = role;
-        document.getElementById('name-label-text').textContent = isDonor ? "Full Name" : "Hospital Name";
-        document.getElementById('verification-title').textContent = isDonor ? "Verification & Donation History" : "Hospital Verification Details";
-        ui.bloodReportFile.required = !isEdit && isDonor;
-
-        document.querySelectorAll('.donor-only-field').forEach(el => {
-            el.classList.toggle('hidden', !isDonor);
-            el.querySelectorAll('input, select, textarea').forEach(input => {
-                input.required = isDonor ? input.dataset.originalRequired === 'true' : false;
-            });
-        });
-        if (isEdit && userProfile) {
-            ui.nameInput.value = userProfile.name || '';
-            ui.phoneInput.value = userProfile.phone || '';
-            ui.ageInput.value = userProfile.age || '';
-            ui.genderInput.value = userProfile.gender || '';
-            ui.weightInput.value = userProfile.weight || '';
-            ui.pinCodeInput.value = userProfile.pinCode || '';
-            ui.bloodTypeInput.value = userProfile.bloodType || '';
-            ui.addressInput.value = userProfile.address || '';
-            ui.lastDonationDateInput.value = userProfile.lastDonationDate || '';
-            ui.bloodReportFile.value = '';
-        } else {
-            ui.profileForm.reset();
-            userId = crypto.randomUUID();
+    // 3. Login
+    async function loginUser(phone) {
+        const data = await postData('/auth/login', { phone });
+        // On successful login, update local state
+        if (data.user) {
+            // Use the userId from the returned user
+            userId = data.user.userId; 
             localStorage.setItem('local_user_id', userId);
-            userProfile = null;
+            userProfile = data.user;
         }
+        return data;
     }
 
-    function showDashboard() {
-        fetchAndSyncUsers();
-
-        if (!userProfile || userProfile.userRole === 'Admin' || userProfile.status !== 'VERIFIED') {
-            if (userProfile && userProfile.userRole !== 'Admin') {
-                showUserBlocked();
-                return;
-            }
-            logoutUser();
-            return;
-        }
-       
-        hideAllViews();
-        ui.mainDashboard.classList.remove('hidden');
-        const isDonor = userProfile.userRole === 'Donor';
-        const isHospital = userProfile.userRole === 'Hospital';
-       
-        ui.dashboardRoleDisplay.textContent = userProfile.userRole;
-        ui.userPinDisplay.textContent = userProfile.pinCode;
-        ui.userBloodDisplay.textContent = userProfile.bloodType || 'N/A';
-       
-        document.getElementById('donor-status-section').classList.toggle('hidden', !isDonor);
-        ui.tabDonor.classList.toggle('hidden', !isDonor);
-        ui.viewDonor.classList.toggle('hidden', !isDonor);
-
-        const requestPinGroup = document.getElementById('request-pin-group');
-        const requestPinInput = document.getElementById('request-pinCode');
-        const requestPinInstruction = document.getElementById('request-pin-instruction');
-        if (isHospital) {
-            requestPinGroup.classList.add('hidden');
-            requestPinInput.required = false;
-            requestPinInput.value = userProfile.pinCode;
-            requestPinInstruction.innerHTML = `Enter the blood type. **Your registered Pin Code (${userProfile.pinCode})** will be used for matching.`;
-        } else {
-            requestPinGroup.classList.remove('hidden');
-            requestPinInput.required = true;
-            requestPinInput.value = '';
-            requestPinInstruction.innerHTML = `Enter the blood type and **current pin code** where blood is needed.`;
-        }
-       
-        if (isDonor) {
-            const eligibility = calculateDonorEligibility(userProfile);
-            ui.donorStatus.textContent = eligibility.status;
-            ui.donorStatus.className = `font-bold ${eligibility.color}`;
-        }
-
-        initMap();
-        if (isDonor && document.querySelector('#tab-donor.border-red-600')) {
-            setActiveTab(ui.tabDonor, ui.viewDonor);
-        } else {
-            setActiveTab(ui.tabRequest, ui.viewRequest);
-        }
-       
-        renderMyRequests();
-        ui.myRequestsSection.classList.toggle('hidden', !userProfile.isRequestActive && !userProfile.donorMatch);
+    // 4. Update Profile (used for Edit Profile)
+    async function updateProfile(profileData) {
+        const data = await postData('/users/update', profileData);
+        userProfile = data.user; 
+        return data;
     }
-   
-    function setActiveAdminTab(activeButton, activeView) {
-        [ui.adminTabUsers, ui.adminTabRequests, ui.adminTabManagement].forEach(btn => {
-            btn.classList.remove('border-blue-600', 'text-blue-600');
-            btn.classList.add('text-gray-600', 'border-transparent');
-        });
-        activeButton.classList.add('border-blue-600', 'text-blue-600');
-        activeButton.classList.remove('text-gray-600', 'border-transparent');
 
-        [ui.adminViewUsers, ui.adminViewRequests, ui.adminViewManagement].forEach(view => view.classList.add('hidden'));
-        activeView.classList.remove('hidden');
-        if (activeView === ui.adminViewManagement) {
-            renderAllUsers();
-        }
+    // 5. Submit Request
+    async function submitRequest(requestData) {
+        const data = await postData('/requests/submit', requestData);
+        userProfile = data.user; 
+        return data;
     }
-   
-    function setActiveTab(activeButton, activeView) {
-        [ui.tabRequest, ui.tabDonor].forEach(btn => {
-            btn.classList.remove('border-red-600', 'text-red-600');
-            btn.classList.add('text-gray-600', 'border-transparent');
-        });
-        activeButton.classList.add('border-red-600', 'text-red-600');
-        activeButton.classList.remove('text-gray-600', 'border-transparent');
 
-        [ui.viewRequest, ui.viewDonor].forEach(view => view.classList.add('hidden'));
-        activeView.classList.remove('hidden');
-       
-        if (activeView === ui.viewDonor) {
-            // -- DONOR VIEW --
-            updateDashboardData(); // This calls renderDonorRequests, which we update to handle mapping
-            
-            // Add "My Location" marker as well (Blue/Standard or Distinct Red)
-            if (userProfile && userProfile.pinCode && PIN_COORDINATES[userProfile.pinCode]) {
-                const homeCoords = PIN_COORDINATES[userProfile.pinCode];
-                if (donorMap) {
-                    // Create a distinctive icon for "ME"
-                    const redIcon = new L.Icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41],
-                        popupAnchor: [1, -34],
-                        shadowSize: [41, 41]
-                    });
-                    
-                    // We don't clear map here because renderDonorRequests will be running too, 
-                    // and we want both my location AND hospital locations.
-                    // But we should ensure we don't have duplicates.
-                    
-                    // For simplicity in this logic: renderDonorRequests clears map first. 
-                    // So we should probably let updateDashboardData handle it, 
-                    // or add this marker AFTER renderDonorRequests runs?
-                    // Actually, updateDashboardData runs synchronously.
-                }
-            }
-        } else {
-            // -- HOSPITAL REQUEST VIEW --
-             if (donorMap) {
-                 donorMap.eachLayer(layer => { if (layer instanceof L.Marker) { donorMap.removeLayer(layer); } });
-             }
-             ui.donorsList.innerHTML = '';
-             ui.noDonors.textContent = "🔍 Submit a request above to find compatible donors in the area.";
-             ui.noDonors.classList.remove('hidden');
-             ui.matchedPinDisplay.textContent = '...';
-        }
+    // 6. Close/Cancel Request (used by Hospital/Admin)
+    async function cancelRequest(requestId) {
+        const data = await postData('/requests/cancel', { requestId });
+        userProfile = data.user; 
+        return data;
+    }
+
+    // 7. Match Donor (used by Donor)
+    async function matchDonorToRequest(requestId) {
+         const data = await postData('/requests/match-donor', { requestId });
+         userProfile = data.user; 
+         return data;
+    }
+
+    // 8. Close Request after Donor Match (used by Requester/Hospital)
+    async function completeRequest(requestId) {
+        const data = await postData('/requests/complete', { requestId });
+        userProfile = data.user; 
+        return data;
     }
 
 
-    function initMap(coords = [12.9716, 77.5946]) { 
-        if (!donorMap) {
-            donorMap = L.map('donorMap').setView(coords, 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(donorMap);
-        } else {
-             donorMap.setView(coords, 12);
-        }
-    }
-   
-    function updateDashboardData() {
-        if (!userProfile) return;
-        
-        const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        
-        // Filter active requests from OTHERS
-        const allApprovedRequests = allUsers.filter(user => {
-            return user.isRequestActive === true && 
-                   user.isPendingAdminApproval === false && 
-                   String(user.userId) !== String(userId);
-        });
+    // --- ADMIN API FUNCTIONS ---
 
-        const eligibility = calculateDonorEligibility(userProfile);
-        let matchingRequests = [];
-        
-        // FORCE STRING for the current user's pin
-        const donorPinCode = String(userProfile.pinCode);
-        const nearbyPins = getNearbyPinCodes(donorPinCode); 
-
-        if (eligibility.eligible) {
-            matchingRequests = allApprovedRequests.filter(request => {
-                const bloodMatch = isCompatible(userProfile.bloodType, request.bloodTypeNeeded);
-                
-                // FORCE STRING for the request pin
-                const requestPin = String(request.requestPinCode || request.pinCode);
-                
-                // Check if the Request's pin is in the Donor's nearby list
-                const pinMatch = nearbyPins.includes(requestPin);
-                
-                return bloodMatch && pinMatch;
-            });
-
-            matchingRequests.sort((a, b) => {
-                const aIsExact = String(a.requestPinCode) === donorPinCode;
-                const bIsExact = String(b.requestPinCode) === donorPinCode;
-                if (aIsExact && !bIsExact) return -1;
-                if (!aIsExact && bIsExact) return 1;
-                return (b.updatedAt || 0) - (a.updatedAt || 0);
-            });
-        }
-        
-        renderDonorRequests(matchingRequests, eligibility);
-    }
-
-    function deleteAccount(userIdToDelete, isPermanent = false) {
-        if (!isPermanent && !window.confirm("WARNING: Are you absolutely sure you want to permanently delete this account? This cannot be undone.")) {
-            return;
-        }
-        let allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        const userToDelete = allUsers.find(user => user.userId === userIdToDelete);
-        if (!userToDelete) return;
-
-        allUsers = allUsers.filter(user => user.userId !== userIdToDelete);
-        localStorage.setItem(ALL_USERS_KEY, JSON.stringify(allUsers));
-        if (userIdToDelete === userId) {
-            saveProfile(null);
-            showNotification("Profile successfully deleted. Returning to main menu.", 'red');
-            setTimeout(() => { showRoleSelection(); }, 1500);
-        } else {
-             showNotification(`${userToDelete.name} (${userToDelete.userRole}) has been permanently deleted.`, 'red');
+    async function fetchAllAdminData() {
+         try {
+             const data = await getData('/sync-storage');
+             allUsers = data.users || [];
+             pendingRequests = data.requests || [];
              renderPendingUsers();
              renderAllUsers();
-        }
+             renderPendingRequests();
+         } catch (error) {
+             console.error("Failed to sync admin data:", error.message);
+             showNotification("Failed to fetch admin data. Check backend connection.", 'red');
+         }
     }
 
+    // Admin Action: Verify User
+    async function verifyUser(id) {
+        const data = await postData('/users/verify', { userId: id });
+        return data.user;
+    }
+
+    // Admin Action: Deny User
+    async function denyUser(id) {
+        const data = await postData('/users/deny', { userId: id });
+        return data.user;
+    }
+
+    // Admin Action: Delete User
+    async function deleteUser(id) {
+        const data = await postData('/users/delete', { userId: id });
+        return data;
+    }
+
+    // Admin Action: Approve Request
+    async function approveRequest(id) {
+        const data = await postData('/requests/approve', { requestId: id, status: 'APPROVED' });
+        return data.request;
+    }
+
+    // Admin Action: Deny Request
+    async function denyRequest(id) {
+        const data = await postData('/requests/approve', { requestId: id, status: 'DENIED' });
+        return data.request;
+    }
+
+
+    // --- SOCKET.IO LISTENERS (Real-time updates) ---
+
+    socket.on('connect', () => {
+        console.log('Socket.IO connected to backend.');
+    });
+    
+    // Listen for general admin data updates (for user/request lists)
+    socket.on('dataUpdate', (data) => {
+        if (userProfile && userProfile.userRole === 'Admin') {
+            // A change occurred, re-fetch and re-render the admin dashboard
+            fetchAllAdminData(); 
+        }
+    });
+
+    socket.on('userStatusUpdate', (updatedUser) => {
+         // Check if the update is for the current user
+        if (userProfile && userProfile.userId === updatedUser.userId) {
+             userProfile = updatedUser;
+             if (updatedUser.status === 'VERIFIED') {
+                 showNotification(`🎉 Your account has been VERIFIED! Redirecting to dashboard.`, 'green');
+                 showDashboard();
+             } else if (updatedUser.status === 'DENIED') {
+                 showNotification(`🚨 Account DENIED. Please check details.`, 'red');
+                 showUserBlocked();
+             }
+        }
+    });
+
+    socket.on('newRequest', (request) => {
+        if (userProfile && userProfile.userRole === 'Donor' && userProfile.status === 'VERIFIED') {
+            showNotification(`🚨 Urgent Request: ${request.bloodTypeNeeded} needed in pin ${request.pinCode}!`, 'red', 10000);
+            updateDashboardData(); // Refresh donor's requests view
+        }
+    });
+    
+    socket.on('requestApproved', (approvedRequest) => {
+         if (userProfile && userProfile.userRole === 'Donor' && userProfile.status === 'VERIFIED') {
+             updateDashboardData(); // Refreshes requests for donor
+         }
+         if (userProfile && userProfile.userId === approvedRequest.requesterId) {
+              // Update local state and dashboard
+              userProfile.isRequestActive = true;
+              updateDashboardData(); 
+              showNotification(`✅ Your request for ${approvedRequest.bloodTypeNeeded} has been APPROVED!`, 'green');
+         }
+    });
+
+    socket.on('requestCompleted', (data) => {
+        // Data contains { userId: donorId, requesterId: hospitalId, bloodTypeNeeded: ... }
+         if (userProfile && userProfile.userId === data.requesterId) {
+            // Hospital who submitted the request
+             userProfile.isRequestActive = false;
+             userProfile.donorMatch = null;
+             updateDashboardData();
+             showNotification(`🩸 Request for ${data.bloodTypeNeeded} is marked COMPLETE!`, 'blue');
+         }
+         if (userProfile && userProfile.userId === data.donorId) {
+             // Donor who accepted
+             userProfile.donorMatch = null;
+             // The server handles updating lastDonationTime, but we update locally for immediate display
+             userProfile.lastDonationTime = Date.now(); 
+             updateDashboardData();
+             showNotification(`THANK YOU! You completed a donation. Cooldown started.`, 'green');
+         }
+    });
+
+    // --- END: BACKEND CONFIGURATION & API HELPERS ---
+    
+    // Global map instance
+    let donorMap = null; 
+    let donorMapRequests = null;
+
+    // --- UI HELPERS ---
     const ui = {
         loading: document.getElementById('loading-state'),
         roleSelection: document.getElementById('role-selection'),
@@ -953,8 +743,34 @@
         mainDashboard: document.getElementById('main-dashboard'),
         profileForm: document.getElementById('profile-form'),
         requestForm: document.getElementById('request-form'),
-        donorStatus: document.getElementById('donor-status'),
-       
+        donorStatus: document.getElementById('donor-status'), 
+        // Admin Views
+        adminViewUsers: document.getElementById('admin-view-users'),
+        adminViewManagement: document.getElementById('admin-view-management'),
+        adminViewRequests: document.getElementById('admin-view-requests'),
+        adminTabUsers: document.getElementById('admin-tab-users'),
+        adminTabManagement: document.getElementById('admin-tab-management'),
+        adminTabRequests: document.getElementById('admin-tab-requests'),
+        pendingUsersList: document.getElementById('pending-users-list'),
+        allUsersList: document.getElementById('all-users-list'),
+        pendingRequestsList: document.getElementById('pending-requests-list'),
+        noPendingUsers: document.getElementById('no-pending-users'),
+        noUsersToManage: document.getElementById('no-users-to-manage'),
+        noPendingRequests: document.getElementById('no-pending-requests'),
+        // Dashboard Views
+        tabRequest: document.getElementById('tab-request'),
+        tabDonor: document.getElementById('tab-donor'),
+        viewRequest: document.getElementById('view-request'),
+        viewDonor: document.getElementById('view-donor'),
+        requestsList: document.getElementById('requests-list'),
+        noRequests: document.getElementById('no-requests'),
+        notDonorMessage: document.getElementById('not-donor-message'),
+        myRequestsList: document.getElementById('my-requests-list'),
+        noOpenRequests: document.getElementById('no-open-requests'),
+        matchingDonorsSection: document.getElementById('matching-donors-section'),
+        donorsList: document.getElementById('donors-list'),
+        noMatchingDonors: document.getElementById('no-matching-donors'),
+        // Profile Setup Fields
         nameInput: document.getElementById('name'),
         phoneInput: document.getElementById('phone'),
         ageInput: document.getElementById('age'),
@@ -967,555 +783,1027 @@
         bloodReportFile: document.getElementById('bloodReportFile'),
         backToDashboardFromEditBtn: document.getElementById('back-to-dashboard-from-edit'),
         deleteAccountBtn: document.getElementById('delete-account-btn'),
-        loginRoleDisplay: document.getElementById('login-role-display'),
-        dashboardRoleDisplay: document.getElementById('dashboard-role-display'),
-
-        pendingUsersList: document.getElementById('pending-users-list'),
-        pendingRequestsList: document.getElementById('pending-requests-list'),
-        adminTabUsers: document.getElementById('admin-tab-users'),
-        adminTabManagement: document.getElementById('admin-tab-management'),
-        adminTabRequests: document.getElementById('admin-tab-requests'),
-        adminViewUsers: document.getElementById('admin-view-users'),
-        adminViewManagement: document.getElementById('admin-view-management'),
-        adminViewRequests: document.getElementById('admin-view-requests'),
-        noPendingUsers: document.getElementById('no-pending-users'),
-        noPendingRequests: document.getElementById('no-pending-requests'),
-        allUsersList: document.getElementById('all-users-list'),
-        noUsersToManage: document.getElementById('no-users-to-manage'),
-
-        loginName: document.getElementById('login-name'),
-        loginPhone: document.getElementById('login-phone'),
+        // Login Fields
         userLoginForm: document.getElementById('user-login-form'),
-
-        donorsList: document.getElementById('donors-list'),
-        noDonors: document.getElementById('no-donors'),
-        matchedPinDisplay: document.getElementById('matched-pin-display'),
-        requestsList: document.getElementById('requests-list'),
-        noRequests: document.getElementById('no-requests'),
-        notDonorMessage: document.getElementById('not-donor-message'),
+        adminLoginForm: document.getElementById('admin-login-form'),
+        adminPinInput: document.getElementById('admin-pin'),
+        // Dashboard displays
+        dashboardRoleDisplay: document.getElementById('dashboard-role-display'),
         userPinDisplay: document.getElementById('user-pin-display'),
         userBloodDisplay: document.getElementById('user-blood-display'),
-        tabRequest: document.getElementById('tab-request'),
-        tabDonor: document.getElementById('tab-donor'),
-        viewRequest: document.getElementById('view-request'),
-        viewDonor: document.getElementById('view-donor'),
-        logoutBtn: document.getElementById('logout-btn'),
-        editProfileBtn: document.getElementById('edit-profile-btn'),
-        myRequestsList: document.getElementById('my-requests-list'),
-        myRequestsSection: document.getElementById('my-requests-section'),
-        noOpenRequests: document.getElementById('no-open-requests'),
     };
 
-    document.querySelectorAll('.select-role-btn').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const role = e.currentTarget.dataset.role;
-            showAuthSelection(role);
-        });
-    });
-    ui.authLoginBtn.addEventListener('click', showUserLogin);
-    ui.authRegisterBtn.addEventListener('click', () => showProfileSetup(false));
-    document.getElementById('auth-back-to-role').addEventListener('click', showRoleSelection);
-    document.getElementById('select-admin-role-btn').addEventListener('click', showAdminLogin);
-    ui.adminLogin.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const inputPin = document.getElementById('admin-pin').value.trim();
-        if (inputPin === ADMIN_KEY) {
-            const adminProfile = { userId: 'admin-id-123', name: "Local Admin", userRole: "Admin", pinCode: ADMIN_KEY, isVerified: true, status: 'VERIFIED', bloodReportLink: null };
-            saveProfile(adminProfile);
-            showNotification("Admin login successful!", 'green');
-            showAdminDashboard();
+    function showNotification(message, type = 'green', duration = 3000) {
+        const box = document.getElementById('global-message-box');
+        const content = document.getElementById('global-message-content');
+        
+        let bgColor, textColor;
+        if (type === 'green') {
+            bgColor = 'bg-green-100 border border-green-400';
+            textColor = 'text-green-800';
+        } else if (type === 'red') {
+            bgColor = 'bg-red-100 border border-red-400';
+            textColor = 'text-red-800';
+        } else if (type === 'yellow') {
+            bgColor = 'bg-yellow-100 border border-yellow-400';
+            textColor = 'text-yellow-800';
+        } else if (type === 'blue') {
+            bgColor = 'bg-blue-100 border border-blue-400';
+            textColor = 'text-blue-800';
         } else {
-            showNotification("Admin Key is incorrect.", 'red');
+            bgColor = 'bg-gray-100 border border-gray-400';
+            textColor = 'text-gray-800';
         }
-    });
-    document.getElementById('admin-back-to-role').addEventListener('click', showRoleSelection);
 
-    ui.userLoginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const inputName = ui.loginName.value.trim();
-        const inputPhone = ui.loginPhone.value.trim();
-       
-        let allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        const matchedUser = allUsers.find(u =>
-            u.userRole === currentSelectedRole &&
-            u.name.toLowerCase() === inputName.toLowerCase() &&
-            u.phone === inputPhone
-        );
+        content.className = `p-3 rounded-lg shadow-xl text-center font-medium max-w-lg mx-auto ${bgColor} ${textColor}`;
+        content.textContent = message;
+        
+        box.classList.remove('-translate-y-full', 'opacity-0');
+        box.classList.add('translate-y-0', 'opacity-100');
 
-        if (!matchedUser) {
-            showNotification(`Login failed: ${currentSelectedRole} not found. Please check details or register.`, 'red');
-            return;
-        }
-        if (matchedUser.status !== 'VERIFIED') {
-            saveProfile(matchedUser);
-            showUserBlocked();
-            return;
-        }
-        saveProfile(matchedUser);
-        showNotification(`${matchedUser.userRole} login successful! Welcome, ${matchedUser.name}.`, 'green');
-        showDashboard();
-    });
-    document.getElementById('login-back-to-auth').addEventListener('click', () => showAuthSelection(currentSelectedRole));
-    document.getElementById('blocked-logout-btn').addEventListener('click', logoutUser);
+        setTimeout(() => {
+            box.classList.remove('translate-y-0', 'opacity-100');
+            box.classList.add('-translate-y-full', 'opacity-0');
+        }, duration);
+    }
+    
+    function hideAllViews() {
+        [ui.roleSelection, ui.authSelection, ui.userLogin, ui.adminLogin, ui.profileSetup, ui.mainDashboard, ui.adminDashboard, ui.userBlocked].forEach(view => {
+            view.classList.add('hidden');
+        });
+    }
 
-    document.getElementById('admin-logout-btn').addEventListener('click', () => {
-        if (window.confirm("Are you sure you want to log out as Admin?")) {
-            logoutUser();
+    function logoutUser() {
+        userProfile = null;
+        // Keep local_user_id to prevent re-generating if the user just closed the tab,
+        // but let the API determine if it's a valid ID on next load.
+        showRoleSelection();
+    }
+
+    // Role Selection
+    let currentSelectedRole = '';
+    function showRoleSelection() {
+        hideAllViews();
+        ui.roleSelection.classList.remove('hidden');
+    }
+
+    function showAuthSelection(role) {
+        currentSelectedRole = role;
+        hideAllViews();
+        ui.authRoleDisplay.textContent = role;
+        ui.authSelection.classList.remove('hidden');
+    }
+
+    function showUserLogin(role) {
+        hideAllViews();
+        document.getElementById('login-role-display').textContent = role;
+        ui.userLogin.classList.remove('hidden');
+    }
+
+    function showAdminLogin() {
+        hideAllViews();
+        ui.adminLogin.classList.remove('hidden');
+    }
+
+    function showUserBlocked() {
+        hideAllViews();
+        const role = userProfile.userRole;
+        const status = userProfile.status;
+        
+        ui.userBlocked.classList.remove('hidden');
+        const contentBox = ui.userBlocked.querySelector('div');
+        const title = ui.userBlocked.querySelector('h2');
+        const message = ui.userBlocked.querySelector('p:nth-child(3)');
+
+        if (status === 'DENIED') {
+             title.textContent = '❌ Account Verification Denied';
+             contentBox.className = 'p-6 bg-red-50 rounded-xl border border-red-300';
+             message.textContent = `Your ${role} profile was permanently denied by the administrator. Please contact the administrator or re-register with accurate data.`;
+        } else {
+             title.textContent = '🚫 Account Pending Verification';
+             contentBox.className = 'p-6 bg-yellow-50 rounded-xl border border-yellow-300';
+             message.textContent = `Your ${role} profile is awaiting verification by an administrator. This includes checking your uploaded blood report/hospital details.`;
         }
-    });
-    ui.adminTabUsers.addEventListener('click', () => setActiveAdminTab(ui.adminTabUsers, ui.adminViewUsers));
-    ui.adminTabManagement.addEventListener('click', () => setActiveAdminTab(ui.adminTabManagement, ui.adminViewManagement));
-    ui.adminTabRequests.addEventListener('click', () => setActiveAdminTab(ui.adminTabRequests, ui.adminViewRequests));
-    ui.profileForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-       
+    }
+
+
+    function initializeProfileSetupForm(isEdit = false) {
         const role = document.getElementById('userRoleHidden').value;
         const isDonor = role === 'Donor';
-       
-        const lastDonationDateStr = ui.lastDonationDateInput.value;
-        const lastDonationTime = isDonor && lastDonationDateStr ? new Date(lastDonationDateStr).getTime() : 0;
         
-        const ageInt = isDonor ? parseInt(ui.ageInput.value) : null;
-        const weightInt = isDonor ? parseInt(ui.weightInput.value) : null;
-       
-        const inputName = ui.nameInput.value.trim();
-        const inputPhone = ui.phoneInput.value.trim();
-        const isEdit = !!userProfile;
-       
-        if (inputPhone.length !== 10) {
-            showNotification("Phone number must be exactly 10 digits.", 'red');
-            return;
-        }
-        if (!document.getElementById('verification-check').checked) {
-            showNotification("You must check the verification box to proceed.", 'red');
-            return;
-        }
-       
-        let bloodReportLink = userProfile ? userProfile.bloodReportLink : null;
-        const uploadedFile = ui.bloodReportFile.files[0];
-       
-        if (!isEdit && isDonor && !uploadedFile) {
-            showNotification("Please upload your latest Blood Report (PDF) to register as a Donor.", 'red');
-            return;
-        }
-       
-        if (isDonor && uploadedFile) {
-            bloodReportLink = `simulated-report-link/${inputName.replace(/\s/g, '-')}-${new Date().getTime()}-${uploadedFile.name}`;
-            if (isEdit) { showNotification("New report uploaded. Admin will need to re-verify.", 'blue'); }
-        }
-
-        let newStatus = 'PENDING_VERIFICATION';
-        if (isEdit) {
-            newStatus = uploadedFile ? 'PENDING_VERIFICATION' : userProfile.status;
-        }
-
-        const newProfile = {
-            userId: userProfile ? userProfile.userId : userId,
-            userRole: role,
-            name: inputName,
-            phone: inputPhone,
-            pinCode: ui.pinCodeInput.value.trim(),
-            address: ui.addressInput.value.trim(),
-            updatedAt: Date.now(),
-            age: ageInt,
-            gender: isDonor ? ui.genderInput.value : null,
-            weight: weightInt,
-            bloodType: isDonor ? ui.bloodTypeInput.value : null,
-            lastDonationDate: isDonor ? lastDonationDateStr : null,
-            lastDonationTime: lastDonationTime,
-            bloodReportLink: isDonor ? bloodReportLink : null,
-            isVerified: newStatus === 'VERIFIED', 
-            status: newStatus, 
-            isRequestActive: isEdit ? userProfile.isRequestActive : false,
-            isPendingAdminApproval: isEdit ? (uploadedFile ? false : userProfile.isPendingAdminApproval) : false,
-            bloodTypeNeeded: isEdit ? userProfile.bloodTypeNeeded : '',
-            requestPinCode: isEdit ? userProfile.requestPinCode : '',
-            donorMatch: isEdit ? userProfile.donorMatch : null,
-        };
-        if (isEdit) {
-             saveProfile(newProfile);
-             showNotification("Profile updated successfully. Re-verification may be required.", 'green');
-             showDashboard();
-        } else {
-             saveProfile(newProfile);
-             apiRegisterProfile(newProfile);
-             showNotification(`${role} registration submitted! Awaiting admin verification.`, 'green');
-             showUserBlocked();
-        }
-    });
-    document.getElementById('signup-back-to-role').addEventListener('click', showRoleSelection);
-    ui.requestForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
-
-        const bloodTypeNeeded = document.getElementById('bloodTypeNeeded').value;
-       
-        const requestPinCode = userProfile.userRole === 'Hospital'
-                                 ? userProfile.pinCode
-                                 : document.getElementById('request-pinCode').value.trim();
-       
-        if (userProfile.status !== 'VERIFIED') {
-             showNotification("Request cannot be submitted. Your account is not yet verified by an administrator.", 'red');
-             submitBtn.disabled = false;
-             submitBtn.textContent = 'Submit Request & Find Nearby Donors';
-             return;
-        }
-
-        const updatedProfile = {
-            ...userProfile,
-            isRequestActive: true,
-            isPendingAdminApproval: true,
-            bloodTypeNeeded: bloodTypeNeeded,
-            requestPinCode: requestPinCode,
-            donorMatch: null,
-            updatedAt: Date.now()
-        };
-        saveProfile(updatedProfile);
-        userProfile = updatedProfile;
-
-        await apiCreateRequest({
-          requesterId: updatedProfile.userId || 'guest',
-          name: updatedProfile.name || updatedProfile.userRole || 'Unknown',
-          phone: updatedProfile.phone || '',
-          userRole: updatedProfile.userRole || 'Hospital',
-          pinCode: updatedProfile.requestPinCode || requestPinCode,
-          bloodTypeNeeded: updatedProfile.bloodTypeNeeded || bloodTypeNeeded
+        document.getElementById('registration-role').textContent = isEdit ? 'Edit Profile' : `New ${role}`;
+        
+        // Toggle donor-specific fields visibility
+        document.querySelectorAll('.donor-only-field').forEach(el => {
+            el.classList.toggle('hidden', !isDonor);
+        });
+        
+        // Handle required attributes
+        document.querySelectorAll('#profile-form input[required], #profile-form select[required], #profile-form textarea[required]').forEach(input => {
+            if (input.closest('.donor-only-field') && !isDonor) {
+                input.removeAttribute('required');
+            } else if (input.dataset.originalRequired === 'true') {
+                input.setAttribute('required', 'required');
+            }
         });
 
-        renderDonors([], requestPinCode, bloodTypeNeeded);
-        ui.noDonors.textContent = "⚠️ Your request is pending admin approval. Donors will be notified once approved.";
-        ui.noDonors.classList.remove('hidden');
-
-        renderMyRequests();
-        ui.myRequestsSection.classList.remove('hidden');
-        showNotification(`Request submitted! Awaiting Admin approval for ${bloodTypeNeeded} near Pin ${requestPinCode}.`, 'blue');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Request & Find Nearby Donors';
-    });
-
-    ui.tabRequest.addEventListener('click', () => { setActiveTab(ui.tabRequest, ui.viewRequest); });
-    ui.tabDonor.addEventListener('click', () => { setActiveTab(ui.tabDonor, ui.viewDonor); });
-    ui.editProfileBtn.addEventListener('click', () => showProfileSetup(true));
-    ui.backToDashboardFromEditBtn.addEventListener('click', showDashboard);
-    ui.deleteAccountBtn.addEventListener('click', () => deleteAccount(userId));
-    ui.logoutBtn.addEventListener('click', () => {
-        if (window.confirm("Are you sure you want to log out?")) {
-            logoutUser();
+        // Toggle back button visibility
+        ui.backToDashboardFromEditBtn.classList.toggle('hidden', !isEdit);
+        document.getElementById('signup-back-to-role').classList.toggle('hidden', isEdit);
+        
+        // Update button text
+        ui.saveProfileBtn.textContent = isEdit ? 'Save Profile Changes' : 'Register & Await Verification';
+        
+        if (isEdit && userProfile) {
+            ui.nameInput.value = userProfile.name || '';
+            ui.phoneInput.value = userProfile.phone || '';
+            ui.ageInput.value = userProfile.age || '';
+            ui.genderInput.value = userProfile.gender || '';
+            ui.weightInput.value = userProfile.weight || '';
+            ui.pinCodeInput.value = userProfile.pinCode || '';
+            ui.bloodTypeInput.value = userProfile.bloodType || '';
+            ui.addressInput.value = userProfile.address || '';
+            ui.lastDonationDateInput.value = userProfile.lastDonationDate || '';
+            ui.bloodReportFile.value = ''; // Clear file input on edit to prevent accidental re-submission
+        } else {
+            ui.profileForm.reset();
         }
-    });
+    }
+    
+    // Main Dashboard View
+    function showDashboard() {
+        if (!userProfile || userProfile.userRole === 'Admin' || userProfile.status !== 'VERIFIED') {
+             // If the user logs in but isn't VERIFIED, send them to the blocked view
+            if (userProfile && userProfile.userRole !== 'Admin') {
+                showUserBlocked();
+                return;
+            }
+            logoutUser();
+            return;
+        } 
+        
+        hideAllViews();
+        ui.mainDashboard.classList.remove('hidden');
+        
+        const isDonor = userProfile.userRole === 'Donor';
+        const isHospital = userProfile.userRole === 'Hospital';
+        
+        ui.dashboardRoleDisplay.textContent = userProfile.userRole;
+        ui.userPinDisplay.textContent = userProfile.pinCode || 'N/A';
+        ui.userBloodDisplay.textContent = userProfile.bloodType || 'N/A';
 
+        // Toggle donor-specific sections
+        document.getElementById('donor-status-section').classList.toggle('hidden', !isDonor);
+        
+        // Hide/show relevant tabs and views based on role
+        ui.tabRequest.classList.toggle('hidden', isDonor);
+        ui.tabDonor.classList.toggle('hidden', isHospital);
+        
+        // Set active tab (Request for Hospital, Donor for Donor)
+        if (isHospital) {
+            setActiveDashboardTab(ui.tabRequest, ui.viewRequest);
+            document.getElementById('request-pin-group').classList.add('hidden'); // Hospital uses its own pin
+            document.getElementById('request-location-text').textContent = `Submit the request for your hospital pin: ${userProfile.pinCode}.`;
+            ui.matchingDonorsSection.classList.remove('hidden');
+        } else {
+            setActiveDashboardTab(ui.tabDonor, ui.viewDonor);
+            ui.matchingDonorsSection.classList.add('hidden');
+        }
+
+        updateDashboardData();
+    }
+
+    // Function to fetch data and update dashboard content
+    async function updateDashboardData() {
+        if (!userProfile) return;
+        
+        // 1. Get the latest profile from the server for real-time status/eligibility
+        try {
+            const syncData = await getData(`/auth/sync-profile/${userProfile.userId}`);
+            userProfile = syncData.user;
+            
+            // Re-check verification status
+            if (userProfile.status !== 'VERIFIED' && userProfile.userRole !== 'Admin') {
+                 showUserBlocked();
+                 return;
+            }
+            
+        } catch (error) {
+            console.error("Error syncing profile for dashboard update:", error);
+            return;
+        }
+
+        // 2. Update Role-Specific Dashboard Views
+        if (userProfile.userRole === 'Donor') {
+             // Fetch Eligibility Status
+             const eligibility = await getData(`/users/eligibility/${userProfile.userId}`); 
+             ui.donorStatus.textContent = eligibility.status;
+             ui.donorStatus.className = `text-base font-bold ${eligibility.color}`;
+             
+             // Donor sees requests near them
+             await renderRequestsForDonor();
+        } else if (userProfile.userRole === 'Hospital') {
+            // Hospital sees their request status/match
+            await renderMyRequests();
+
+            // Hospital sees matching donors if a request is active
+            if (userProfile.isRequestActive) {
+                try {
+                    const data = await getData('/donors/match', { pinCode: userProfile.requestPinCode, bloodType: userProfile.bloodTypeNeeded });
+                    renderDonors(data.donors || []);
+                } catch (err) {
+                    console.error("Error fetching matching donors:", err);
+                    renderDonors([]);
+                }
+            } else {
+                renderDonors([]); // Clear donors if no active request
+            }
+        }
+    }
+
+    // Helper: Map initialization
+    function initMap(center, mapElementId = 'donorMapRequests') {
+        if (mapElementId === 'donorMapRequests' && donorMapRequests) {
+             donorMapRequests.setView(center, 12);
+             return donorMapRequests;
+        }
+        if (mapElementId === 'donorMap' && donorMap) {
+             donorMap.setView(center, 12);
+             return donorMap;
+        }
+        
+        const newMap = L.map(mapElementId).setView(center, 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(newMap);
+        
+        if (mapElementId === 'donorMapRequests') {
+            donorMapRequests = newMap;
+        } else {
+            donorMap = newMap;
+        }
+        return newMap;
+    }
+
+    function setActiveDashboardTab(activeButton, activeView) {
+        [ui.tabRequest, ui.tabDonor].forEach(btn => {
+            btn.classList.remove('border-red-600', 'text-red-600');
+            btn.classList.add('text-gray-600', 'border-transparent');
+        });
+        activeButton.classList.add('border-red-600', 'text-red-600');
+        activeButton.classList.remove('text-gray-600', 'border-transparent');
+
+        [ui.viewRequest, ui.viewDonor].forEach(view => view.classList.add('hidden'));
+        activeView.classList.remove('hidden');
+
+        // Refresh data on tab switch
+        updateDashboardData();
+    }
+    
+    function setActiveAdminTab(activeButton, activeView) {
+        [ui.adminTabUsers, ui.adminTabManagement, ui.adminTabRequests].forEach(btn => {
+            btn.classList.remove('border-blue-600', 'text-blue-600');
+            btn.classList.add('text-gray-600', 'border-transparent');
+        });
+        activeButton.classList.add('border-blue-600', 'text-blue-600');
+        activeButton.classList.remove('text-gray-600', 'border-transparent');
+
+        [ui.adminViewUsers, ui.adminViewManagement, ui.adminViewRequests].forEach(view => view.classList.add('hidden'));
+        activeView.classList.remove('hidden');
+        
+        // Ensure data is refreshed
+        fetchAllAdminData();
+    }
+
+    // --- RENDER FUNCTIONS (Uses global `allUsers` and `pendingRequests` from API sync) ---
+
+    // Admin: Render Users Awaiting Verification
     function renderPendingUsers() {
         ui.pendingUsersList.innerHTML = '';
-        const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        const pendingUsers = allUsers.filter(user => user.userRole !== 'Admin' && user.status === 'PENDING_VERIFICATION');
+        const pendingUsers = allUsers.filter(user => user.status === 'PENDING_VERIFICATION' || user.status === 'PENDING');
+
         ui.noPendingUsers.classList.toggle('hidden', pendingUsers.length > 0);
 
         pendingUsers.forEach(user => {
             const isDonor = user.userRole === 'Donor';
-            const reportStatus = isDonor
-                ? (user.bloodReportLink ? `<span class="text-green-600 font-bold">Report Attached</span>` : `<span class="text-red-600 font-bold">No Report Uploaded</span>`)
-                : `<span class="text-blue-600 font-bold">Hospital Details Submitted</span>`;
+            const verificationInfo = isDonor ? 
+                `Type: ${user.bloodType}, Age: ${user.age}, Weight: ${user.weight}kg` : 
+                `Pin: ${user.pinCode}, Address: ${user.address.substring(0, 30)}...`;
+            const reportStatus = isDonor ? 
+                (user.bloodReportLink ? 'Report Uploaded' : 'Report MISSING') : 
+                'N/A';
+            const reportAction = isDonor && user.bloodReportLink ? 
+                `<a href="#" class="view-report-link text-blue-600 hover:text-blue-800 underline text-sm font-semibold" data-report-link="${user.bloodReportLink}">View Report (Simulated)</a>` : 
+                (isDonor ? `<span class="text-gray-500 text-sm">Cannot Verify without Report</span>` : `<span class="text-gray-500 text-sm">Review Address/Pin</span>`);
 
-            const verificationInfo = isDonor
-                ? `Age: ${user.age}, Weight: ${user.weight}kg, Blood Type: ${user.bloodType}`
-                : `Organization Pin: ${user.pinCode}`;
-           
-            const reportAction = isDonor && user.bloodReportLink
-                ? `<a href="#" class="view-report-link text-blue-600 hover:text-blue-800 underline text-sm font-semibold" data-report-link="${user.bloodReportLink}">View Report (Simulated)</a>`
-                : (isDonor ? `<span class="text-xs text-red-500">&#x26A0; No report</span>` : '');
-           
             const userCard = document.createElement('div');
-            userCard.className = 'bg-white p-4 rounded-lg border border-gray-200 flex justify-between items-center flex-wrap gap-2';
+            userCard.className = 'bg-white p-4 rounded-xl border border-blue-200 shadow-sm flex justify-between items-center flex-wrap gap-4';
             userCard.innerHTML = `
-                <div>
-                    <div class="font-bold text-lg text-gray-800">${user.name} <span class="text-sm font-medium text-gray-500">(${user.userRole})</span></div>
-                    <div class="text-sm text-gray-600">${verificationInfo}</div>
-                    <div class="text-sm mt-1">${reportAction}</div>
+                <div class="space-y-1">
+                    <p class="text-lg font-bold text-gray-800">${user.name} (<span class="text-red-600">${user.userRole}</span>)</p>
+                    <p class="text-sm text-gray-600">Pin: ${user.pinCode} | Phone: ${user.phone}</p>
+                    <p class="text-xs text-gray-500">${verificationInfo}</p>
+                    <p class="text-sm mt-2">${reportStatus} | ${reportAction}</p>
                 </div>
-                <div class="flex gap-2 items-center">
-                    <button class="approve-btn py-2 px-3 bg-green-100 text-green-700 rounded-full text-sm font-semibold" data-id="${user.userId}">Approve</button>
-                    <button class="deny-btn py-2 px-3 bg-red-100 text-red-700 rounded-full text-sm font-semibold" data-id="${user.userId}">Deny</button>
+                <div class="flex flex-col space-y-2">
+                    <button class="verify-user-btn bg-green-600 text-white hover:bg-green-700 text-sm font-bold py-2 px-4 rounded-full shadow-md transition duration-150" data-user-id="${user.userId}">
+                        Verify User
+                    </button>
+                    <button class="deny-user-btn bg-red-100 text-red-700 hover:bg-red-200 text-sm font-bold py-1 px-4 rounded-full transition duration-150" data-user-id="${user.userId}">
+                        Deny
+                    </button>
                 </div>
             `;
             ui.pendingUsersList.appendChild(userCard);
-            userCard.querySelector('.approve-btn').addEventListener('click', async (ev) => {
-                const uid = ev.currentTarget.dataset.id;
-                let all = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-                const idx = all.findIndex(x => x.userId === uid);
-                if (idx > -1) {
-                    all[idx].status = 'VERIFIED';
-                    all[idx].isVerified = true;
-                    localStorage.setItem(ALL_USERS_KEY, JSON.stringify(all));
-                    renderPendingUsers();
-                    renderAllUsers();
-                    await API.put(`/api/admin/approve-user/${uid}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'approve' });
-                    fetchAndSyncUsers();
+        });
+
+        // Add event listeners for verify/deny buttons (using API)
+        document.querySelectorAll('.verify-user-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.userId;
+                e.target.textContent = 'Verifying...';
+                e.target.disabled = true;
+                try {
+                    await verifyUser(id); 
+                    showNotification(`User ${id} verified. Status updated on dashboard.`, 'green');
+                    fetchAllAdminData(); 
+                } catch (err) {
+                     showNotification(`Verification failed: ${err.message}`, 'red');
                 }
             });
-            userCard.querySelector('.deny-btn').addEventListener('click', async (ev) => {
-                const uid = ev.currentTarget.dataset.id;
-                if (!confirm('Deny and remove this user?')) return;
-                await API.put(`/api/admin/approve-user/${uid}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'deny' });
-                fetchAndSyncUsers();
+        });
+        document.querySelectorAll('.deny-user-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.userId;
+                if (window.confirm(`Are you sure you want to PERMANENTLY DENY this account?`)) {
+                     e.target.textContent = 'Denying...';
+                     e.target.disabled = true;
+                     try {
+                         await denyUser(id); 
+                         showNotification(`User ${id} denied. Status updated on dashboard.`, 'red');
+                         fetchAllAdminData(); 
+                     } catch (err) {
+                          showNotification(`Denial failed: ${err.message}`, 'red');
+                     }
+                }
             });
         });
     }
 
+    // Admin: Render All Users for Management
     function renderAllUsers() {
         ui.allUsersList.innerHTML = '';
-        const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]').filter(u => u.userRole !== 'Admin');
-        ui.noUsersToManage.classList.toggle('hidden', allUsers.length > 0);
-        allUsers.forEach(user => {
-            const card = document.createElement('div');
-            card.className = 'bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center';
-            card.innerHTML = `
-                <div>
-                    <div class="font-bold">${user.name} <span class="text-sm text-gray-500">(${user.userRole})</span></div>
-                    <div class="text-xs text-gray-600">Pin: ${user.pinCode} • Status: ${user.status}</div>
+        const managedUsers = allUsers.filter(user => user.userRole !== 'Admin');
+
+        ui.noUsersToManage.classList.toggle('hidden', managedUsers.length > 0);
+
+        managedUsers.forEach(user => {
+            let statusColor = 'text-gray-500';
+            let statusBadge = user.status;
+            if (user.status === 'VERIFIED') {
+                statusColor = 'text-green-600';
+            } else if (user.status === 'DENIED') {
+                statusColor = 'text-red-600';
+            } else {
+                statusColor = 'text-yellow-600';
+                statusBadge = 'PENDING';
+            }
+            
+            const detailInfo = user.userRole === 'Donor' ? 
+                `Blood: ${user.bloodType || 'N/A'}, Last Donated: ${user.lastDonationDate || 'Never'}` : 
+                `Pin: ${user.pinCode}, Address: ${user.address.substring(0, 30)}...`;
+
+            const userCard = document.createElement('div');
+            userCard.className = 'bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-start flex-wrap gap-4';
+            userCard.innerHTML = `
+                <div class="space-y-1">
+                    <p class="text-lg font-bold text-gray-800">${user.name} (<span class="text-red-600">${user.userRole}</span>)</p>
+                    <p class="text-sm ${statusColor} font-bold">Status: ${statusBadge}</p>
+                    <p class="text-xs text-gray-500">${detailInfo}</p>
+                    <p class="text-xs text-gray-500">Phone: ${user.phone}</p>
                 </div>
-                <div class="flex gap-2">
-                    <button class="manage-delete text-sm text-red-600">Delete</button>
+                <div class="flex flex-col space-y-2">
+                    <button class="delete-user-btn bg-red-50 text-red-700 hover:bg-red-200 text-sm font-bold py-2 px-4 rounded-full shadow-sm transition duration-150" data-user-id="${user.userId}">
+                        Delete User
+                    </button>
                 </div>
             `;
-            ui.allUsersList.appendChild(card);
-            card.querySelector('.manage-delete').addEventListener('click', () => deleteAccount(user.userId, true));
+            ui.allUsersList.appendChild(userCard);
+        });
+
+        // Add event listeners for delete buttons (using API)
+        document.querySelectorAll('.delete-user-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.userId;
+                const userToDelete = allUsers.find(u => u.userId === id);
+                if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${userToDelete.name} (${userToDelete.userRole})? This action cannot be undone.`)) {
+                    e.target.textContent = 'Deleting...';
+                    e.target.disabled = true;
+                    try {
+                         await deleteUser(id); 
+                         showNotification(`User deleted.`, 'red');
+                         fetchAllAdminData(); 
+                         if (id === userProfile.userId) logoutUser(); // If admin deletes self
+                    } catch (err) {
+                         showNotification(`Deletion failed: ${err.message}`, 'red');
+                    }
+                }
+            });
         });
     }
-
+    
+    // Admin: Render Requests Awaiting Approval
     function renderPendingRequests() {
         ui.pendingRequestsList.innerHTML = '';
-        const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        const pendingRequests = allUsers.filter(u => u.isRequestActive && u.isPendingAdminApproval);
-        ui.noPendingRequests.classList.toggle('hidden', pendingRequests.length > 0);
-        pendingRequests.forEach(req => {
-            const item = document.createElement('div');
-            item.className = 'bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center';
-            item.innerHTML = `
-                <div>
-                    <div class="font-bold text-red-600">${req.bloodTypeNeeded || 'Unknown'}</div>
-                    <div class="text-sm text-gray-600">Pin: ${req.requestPinCode} • By: ${req.name}</div>
+        const pendingReqs = pendingRequests.filter(req => req.status === 'PENDING');
+
+        ui.noPendingRequests.classList.toggle('hidden', pendingReqs.length > 0);
+
+        pendingReqs.forEach(req => {
+            const reqCard = document.createElement('div');
+            reqCard.className = 'bg-white p-4 rounded-xl border border-yellow-300 shadow-sm flex justify-between items-center flex-wrap gap-4';
+            reqCard.innerHTML = `
+                <div class="space-y-1">
+                    <p class="text-lg font-bold text-gray-800">Need: <span class="text-red-700">${req.bloodTypeNeeded}</span></p>
+                    <p class="text-sm text-gray-600">Pin: ${req.pinCode} | Requester: ${req.name} (${req.userRole})</p>
+                    <p class="text-xs text-gray-500">Phone: ${req.phone} | Status: PENDING</p>
                 </div>
-                <div class="flex gap-2">
-                    <button class="approve-request-btn py-2 px-3 bg-green-100 text-green-700 rounded-full text-sm font-semibold" data-id="${req.userId}" data-req-id="${req._requestId || ''}">Approve</button>
-                    <button class="deny-request-btn py-2 px-3 bg-red-100 text-red-700 rounded-full text-sm font-semibold" data-id="${req.userId}" data-req-id="${req._requestId || ''}">Deny</button>
+                <div class="flex flex-col space-y-2">
+                    <button class="approve-request-btn bg-green-600 text-white hover:bg-green-700 text-sm font-bold py-2 px-4 rounded-full shadow-md transition duration-150" data-request-id="${req._id}">
+                        Approve & Broadcast
+                    </button>
+                    <button class="deny-request-btn bg-red-100 text-red-700 hover:bg-red-200 text-sm font-bold py-1 px-4 rounded-full transition duration-150" data-request-id="${req._id}">
+                        Deny
+                    </button>
                 </div>
             `;
-            ui.pendingRequestsList.appendChild(item);
+            ui.pendingRequestsList.appendChild(reqCard);
+        });
 
-            item.querySelector('.approve-request-btn').addEventListener('click', async (ev) => {
-                const userId = ev.currentTarget.dataset.id;
-                const reqId = ev.currentTarget.dataset.reqId;
-                const targetId = reqId || userId;
-                
-                await API.put(`/api/admin/approve-request/${targetId}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'approve' });
-                showNotification('Request approval sent.', 'green');
-                fetchAndSyncUsers();
+        // Add event listeners for approve/deny buttons (using API)
+        document.querySelectorAll('.approve-request-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.requestId;
+                e.target.textContent = 'Approving...';
+                e.target.disabled = true;
+                try {
+                    await approveRequest(id); 
+                    showNotification(`Request approved and broadcasted.`, 'green');
+                    fetchAllAdminData(); 
+                } catch (err) {
+                    showNotification(`Approval failed: ${err.message}`, 'red');
+                }
             });
-            item.querySelector('.deny-request-btn').addEventListener('click', async (ev) => {
-                const userId = ev.currentTarget.dataset.id;
-                const reqId = ev.currentTarget.dataset.reqId;
-                const targetId = reqId || userId;
-                await API.put(`/api/admin/approve-request/${targetId}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'deny' });
-                fetchAndSyncUsers();
+        });
+
+        document.querySelectorAll('.deny-request-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.requestId;
+                e.target.textContent = 'Denying...';
+                e.target.disabled = true;
+                try {
+                    await denyRequest(id); 
+                    showNotification(`Request denied.`, 'red');
+                    fetchAllAdminData(); 
+                } catch (err) {
+                    showNotification(`Denial failed: ${err.message}`, 'red');
+                }
             });
         });
     }
 
-    function renderDonors(donorsArray, requestPinCode, bloodTypeNeeded) {
-      try {
-        const pin = requestPinCode || (userProfile && userProfile.requestPinCode) || '';
-        const needed = bloodTypeNeeded || (userProfile && userProfile.bloodTypeNeeded) || '';
-        let donors = Array.isArray(donorsArray) && donorsArray.length ? donorsArray : getDonorsInArea(pin, needed);
+    // Hospital: Render Matching Donors
+    function renderDonors(donors) {
+        ui.donorsList.innerHTML = '';
+        ui.noMatchingDonors.classList.toggle('hidden', donors.length > 0);
 
-        if (pin && PIN_COORDINATES[pin]) {
-          initMap(PIN_COORDINATES[pin]);
-        } else {
-          initMap();
-        }
+        donors.forEach(donor => {
+            const donorCard = document.createElement('div');
+            donorCard.className = 'bg-white p-4 rounded-xl border border-green-200 shadow-sm flex justify-between items-center flex-wrap gap-4';
+            
+            const matchPinText = donor.pinCode === userProfile.requestPinCode 
+                ? `<span class="text-green-600 font-bold">Exact Match Pin</span>` 
+                : `<span class="text-yellow-600 font-bold">Nearby Pin</span>`;
 
-        if (donorMap) {
-          donorMap.eachLayer(layer => {
-            if (layer instanceof L.Marker) donorMap.removeLayer(layer);
-          });
-        }
-
-        const listEl = document.getElementById('donors-list');
-        listEl.innerHTML = '';
-        if (!donors || donors.length === 0) {
-          document.getElementById('no-donors').classList.remove('hidden');
-          document.getElementById('matched-pin-display').textContent = pin || '...';
-          return;
-        }
-
-        document.getElementById('no-donors').classList.add('hidden');
-        document.getElementById('matched-pin-display').textContent = pin || '...';
-        donors.forEach(d => {
-          const coords = getCoordsForPin(d.pinCode);
-          const marker = L.marker(coords).addTo(donorMap);
-          marker.bindPopup(`<b>${d.name}</b><br/>Type: ${d.bloodType || 'N/A'}<br/>Pin: ${d.pinCode}<br/>Phone: ${d.phone || 'N/A'}`);
-
-          const card = document.createElement('div');
-          card.className = 'bg-white p-4 rounded-lg border border-gray-200 flex justify-between items-center';
-          card.innerHTML = `
-            <div>
-              <div class="font-bold">${d.name} <span class="text-sm text-gray-500">(${d.bloodType || 'N/A'})</span></div>
-              <div class="text-xs text-gray-600">Pin: ${d.pinCode} ${d.age ? '• ' + d.age + ' yrs' : ''}</div>
-              <div class="text-xs text-gray-500">${d.status || ''}</div>
-            </div>
-            <div class="flex flex-col items-end">
-              <a href="tel:${d.phone || ''}" class="text-sm text-blue-600 font-semibold">${d.phone ? 'Call' : ''}</a>
-            </div>
-          `;
-          listEl.appendChild(card);
+            donorCard.innerHTML = `
+                <div class="space-y-1">
+                    <p class="text-lg font-bold text-gray-800">${donor.name}</p>
+                    <p class="text-sm text-gray-600">Blood Type: <span class="text-red-700 font-bold">${donor.bloodType}</span> | ${matchPinText}</p>
+                    <p class="text-xs text-gray-500">Age: ${donor.age}, Weight: ${donor.weight}kg</p>
+                </div>
+                <div class="flex flex-col space-y-2">
+                    <button class="contact-donor-btn bg-blue-600 text-white hover:bg-blue-700 text-sm font-bold py-2 px-4 rounded-full shadow-md transition duration-150" 
+                        data-donor-id="${donor.userId}" data-request-id="${userProfile.requestId}">
+                        Contact Donor
+                    </button>
+                </div>
+            `;
+            ui.donorsList.appendChild(donorCard);
         });
-      } catch (err) {
-        console.error('renderDonors error', err);
-        document.getElementById('donors-list').innerHTML = '';
-        document.getElementById('no-donors').classList.remove('hidden');
-      }
+
+        // Add event listeners for 'Contact Donor' (Match Donor to Request via API)
+        document.querySelectorAll('.contact-donor-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const donorId = e.target.dataset.donorId;
+                const requestId = e.target.dataset.requestId; // Assuming the Hospital's active request ID is available (it should be on userProfile)
+                if (window.confirm(`Are you sure you want to send a match alert to this donor? This will close the request for other donors and alert them to contact you.`)) {
+                    e.target.textContent = 'Matching...';
+                    e.target.disabled = true;
+                    try {
+                        await postData('/requests/match', { donorId, requestId }); 
+                        showNotification(`Match alert sent to donor! They will be directed to contact you.`, 'green');
+                        // Refresh dashboard to show the match notification
+                        updateDashboardData();
+                    } catch (err) {
+                        showNotification(`Matching failed: ${err.message}`, 'red');
+                        e.target.textContent = 'Contact Donor';
+                        e.target.disabled = false;
+                    }
+                }
+            });
+        });
     }
 
-    // UPDATED: Renders requests list AND plots them on the map
-    function renderDonorRequests(requestsArray, eligibility) {
-      try {
-        const listEl = document.getElementById('requests-list');
-        listEl.innerHTML = '';
+    // Donor: Render Requests Near Me
+    async function renderRequestsForDonor() {
+        ui.requestsList.innerHTML = '';
+        ui.notDonorMessage.classList.add('hidden');
+        ui.noRequests.classList.add('hidden');
+
+        // 1. Fetch Donor Eligibility Status from Server
+        const eligibility = await getData(`/users/eligibility/${userProfile.userId}`); 
+
+        // Update UI status for immediate feedback
+        ui.donorStatus.textContent = eligibility.status;
+        ui.donorStatus.className = `text-base font-bold ${eligibility.color}`;
         
-        // 1. Clear the map first so we can add new request markers
-        if (donorMap) {
-            donorMap.eachLayer(layer => {
-                if (layer instanceof L.Marker) donorMap.removeLayer(layer);
+        if (!eligibility.eligible) {
+             ui.notDonorMessage.textContent = `🚫 ${eligibility.status}. You cannot receive urgent alerts while ineligible.`;
+             ui.notDonorMessage.classList.remove('hidden');
+             return;
+        }
+
+        // 2. Fetch Requests near the donor's pin code (Server handles compatibility/distance)
+        const data = await getData('/requests/open', { pinCode: userProfile.pinCode, bloodType: userProfile.bloodType });
+        const requests = data.requests || [];
+        
+        if (requests.length === 0) {
+            ui.noRequests.classList.remove('hidden');
+            return;
+        }
+
+        // Setup map: Center on donor's home pin
+        const donorCoords = PIN_COORDINATES[userProfile.pinCode];
+        if (!donorMapRequests) donorMapRequests = initMap(donorCoords, 'donorMapRequests');
+        donorMapRequests.setView(donorCoords, 12);
+        
+        // Clear all markers from map
+        donorMapRequests.eachLayer(layer => {
+             if (layer instanceof L.Marker) {
+                 donorMapRequests.removeLayer(layer);
+             }
+        });
+
+        // Add Donor's Marker (Red Icon)
+        const redIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+        L.marker(donorCoords, { icon: redIcon })
+            .bindPopup(`<b>Your Home Area (Donor):</b><br>Pin ${userProfile.pinCode}<br>Type: ${userProfile.bloodType}`)
+            .addTo(donorMapRequests);
+            
+        const blueIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const requestMarkers = [];
+        requests.forEach(req => {
+            const isExactMatch = req.pinCode === userProfile.pinCode;
+            const matchPinText = isExactMatch 
+                ? `<span class="text-green-600 font-bold">Exact Match Pin</span>` 
+                : `<span class="text-yellow-600 font-bold">Nearby Pin</span>`;
+
+            const reqCard = document.createElement('div');
+            reqCard.className = `bg-white p-4 rounded-xl border ${isExactMatch ? 'border-red-400' : 'border-yellow-300'} shadow-sm flex justify-between items-center flex-wrap gap-4`;
+            reqCard.innerHTML = `
+                <div class="space-y-1">
+                    <p class="text-lg font-bold text-gray-800">URGENT: <span class="text-red-700">${req.bloodTypeNeeded}</span> needed</p>
+                    <p class="text-sm text-gray-600">${matchPinText} - Pin: ${req.pinCode}</p>
+                    <p class="text-xs text-gray-500">Requester: ${req.name}</p>
+                </div>
+                <div>
+                    <button class="accept-request-btn bg-green-600 text-white hover:bg-green-700 text-sm font-bold py-2 px-4 rounded-full shadow-md transition duration-150" data-request-id="${req._id}">
+                        Accept Request
+                    </button>
+                </div>
+            `;
+            ui.requestsList.appendChild(reqCard);
+            
+            // Add marker to map
+            const requestCoords = PIN_COORDINATES[req.pinCode];
+            if (requestCoords) {
+                const requestMarker = L.marker(requestCoords, { icon: blueIcon })
+                    .bindPopup(`<b>URGENT BLOOD NEEDED: ${req.bloodTypeNeeded}</b><br>Request Location: Pin ${req.pinCode}`)
+                    .addTo(donorMapRequests);
+                requestMarkers.push(requestMarker);
+            }
+        });
+
+        // Add event listeners for 'Accept Request' (Match Donor to Request via API)
+        document.querySelectorAll('.accept-request-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const requestId = e.target.dataset.requestId;
+                if (window.confirm("Confirm you are eligible and ready to donate. Accepting sends your contact info to the requester.")) {
+                    e.target.textContent = 'Accepting...';
+                    e.target.disabled = true;
+                    try {
+                        await matchDonorToRequest(requestId); 
+                        showNotification("🤝 You have accepted the request! Requester notified. Check your dashboard.", 'green');
+                        updateDashboardData(); 
+                    } catch (err) {
+                        showNotification(`Failed to accept request: ${err.message}`, 'red');
+                        e.target.textContent = 'Accept Request';
+                        e.target.disabled = false;
+                    }
+                }
             });
-            // Re-add "My Location" marker if donor is logged in
-            if (userProfile && userProfile.pinCode && PIN_COORDINATES[userProfile.pinCode]) {
-                const redIcon = new L.Icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                });
-                L.marker(PIN_COORDINATES[userProfile.pinCode], { icon: redIcon })
-                 .addTo(donorMap)
-                 .bindPopup(`<b>My Location</b><br>Pin: ${userProfile.pinCode}`);
+        });
+        
+        // Fit map bounds to include the donor and all requests
+        if (requestMarkers.length > 0 && donorCoords) {
+            const donorMarker = L.marker(donorCoords);
+            const group = new L.featureGroup([donorMarker, ...requestMarkers]);
+            donorMapRequests.fitBounds(group.getBounds().pad(0.5));
+        }
+    }
+    
+    // Hospital: Render My Open Request Status
+    async function renderMyRequests() {
+        ui.myRequestsList.innerHTML = '';
+        ui.noOpenRequests.classList.add('hidden');
+        
+        // Always sync the profile just before rendering to get the latest match status
+        try {
+            const data = await getData(`/auth/sync-profile/${userProfile.userId}`);
+            userProfile = data.user;
+        } catch (error) {
+             console.error("Failed to sync profile for myRequests:", error);
+             showNotification("Error syncing profile status for request tracking.", 'red');
+             return;
+        }
+
+        // 1. Check for a Donor Match Notification (Highest Priority)
+        if (userProfile && userProfile.donorMatch) {
+            const match = userProfile.donorMatch;
+            const timeString = new Date(match.matchTime).toLocaleTimeString();
+            
+            const matchCard = document.createElement('div');
+            matchCard.className = 'bg-green-100 p-6 rounded-xl border border-green-400 shadow-md space-y-3';
+            matchCard.innerHTML = `
+                <h4 class="text-xl font-bold text-green-800">🎉 Donor Match Found!</h4>
+                <p class="text-sm text-gray-700">A donor has accepted your urgent request. Please contact them immediately:</p>
+                <div class="bg-white p-4 rounded-lg border border-green-300">
+                    <p class="text-lg font-bold text-gray-900">${match.donorName} (${match.donorBloodType})</p>
+                    <p class="text-md text-red-700 font-semibold">Phone: ${match.donorPhone}</p>
+                    <p class="text-xs text-gray-500 mt-1">Matched at ${timeString}. This request is now closed to other donors.</p>
+                </div>
+                <button class="match-complete-btn w-full bg-blue-600 text-white hover:bg-blue-700 text-base font-bold py-3 px-4 rounded-xl shadow-md transition duration-150" data-request-id="${match.requestId}">
+                    Mark Request Complete & Close
+                </button>
+            `;
+            ui.myRequestsList.appendChild(matchCard);
+            
+            // Add event listeners for 'Close Request' after match
+            document.querySelector('.match-complete-btn').addEventListener('click', async (e) => {
+                 if (window.confirm("Are you sure the donation is complete and you want to close the request?")) {
+                     e.target.textContent = 'Completing...';
+                     e.target.disabled = true;
+                     try {
+                         await completeRequest(match.requestId); 
+                         showNotification(`Request closed. Thank you!`, 'blue');
+                         updateDashboardData(); 
+                     } catch (err) {
+                          showNotification(`Failed to close request: ${err.message}`, 'red');
+                          e.target.textContent = 'Mark Request Complete & Close';
+                          e.target.disabled = false;
+                     }
+                 }
+            });
+            
+            return;
+        }
+        
+        // 2. Check for an open request that hasn't been matched
+        if (userProfile && userProfile.isRequestActive) {
+            // Fetch the details of the open request
+            const requestDetails = await getData(`/requests/details/${userProfile.userId}`); 
+            const request = requestDetails.request;
+            
+            const reqCard = document.createElement('div');
+            reqCard.className = 'bg-yellow-50 p-6 rounded-xl border border-yellow-400 shadow-md space-y-3';
+            reqCard.innerHTML = `
+                <h4 class="text-xl font-bold text-yellow-800">🟡 Open Request Status</h4>
+                <p class="text-sm text-gray-700">Type: <span class="font-bold text-red-700">${request.bloodTypeNeeded}</span> needed in Pin: ${request.pinCode}</p>
+                <p class="text-md font-semibold text-gray-700">Admin Status: <span class="text-green-600">${request.status} (Broadcasted)</span></p>
+                <p class="text-xs text-gray-500">Matching donors are listed below. Click 'Contact Donor' to send an alert.</p>
+                <button id="cancel-request-btn" class="w-full bg-red-100 text-red-700 hover:bg-red-200 text-sm font-bold py-3 px-4 rounded-xl shadow-sm transition duration-150">
+                    Cancel Request
+                </button>
+            `;
+            ui.myRequestsList.appendChild(reqCard);
+            
+            // Add event listener for 'Cancel Request'
+            document.getElementById('cancel-request-btn').addEventListener('click', async (e) => {
+                if (window.confirm("Are you sure you want to cancel this open request?")) {
+                     e.target.textContent = 'Cancelling...';
+                     e.target.disabled = true;
+                     try {
+                        await cancelRequest(request._id); 
+                        showNotification(`Request successfully cancelled.`, 'blue');
+                        updateDashboardData(); 
+                     } catch (err) {
+                          showNotification(`Failed to cancel request: ${err.message}`, 'red');
+                          e.target.textContent = 'Cancel Request';
+                          e.target.disabled = false;
+                     }
+                }
+            });
+        } else {
+            // No open requests logic
+            ui.noOpenRequests.classList.remove('hidden');
+        }
+    }
+
+
+    // --- EVENT LISTENERS ---
+
+    document.querySelectorAll('.select-role-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const role = e.currentTarget.dataset.role;
+            document.getElementById('userRoleHidden').value = role;
+            showAuthSelection(role);
+        });
+    });
+
+    document.getElementById('select-admin-role-btn').addEventListener('click', showAdminLogin);
+    
+    document.getElementById('auth-login-btn').addEventListener('click', () => showUserLogin(currentSelectedRole));
+    document.getElementById('auth-register-btn').addEventListener('click', () => {
+        initializeProfileSetupForm(false);
+        hideAllViews();
+        ui.profileSetup.classList.remove('hidden');
+    });
+    
+    document.getElementById('auth-back-to-role').addEventListener('click', showRoleSelection);
+
+    document.getElementById('admin-back-to-role').addEventListener('click', showRoleSelection);
+    
+    document.getElementById('signup-back-to-role').addEventListener('click', showRoleSelection);
+
+    document.getElementById('back-to-dashboard-from-edit').addEventListener('click', showDashboard);
+
+    // Admin Login (Modified to use fixed secret key for simulation)
+    ui.adminLoginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pin = ui.adminPinInput.value.trim();
+        // NOTE: Admin Key should match the one in your .env (ADMIN_SECRET="hellowrld")
+        if (pin !== 'hellowrld') { 
+             showNotification("Invalid Admin Key.", 'red');
+             return;
+        }
+        
+        // Simulate admin login profile
+        userProfile = {
+            userId: 'admin_user',
+            name: 'Administrator',
+            userRole: 'Admin',
+            status: 'VERIFIED',
+            // Minimal data required for Admin
+        };
+        
+        showNotification("Admin login successful.", 'green');
+        showAdminDashboard();
+    });
+
+
+    // User Login (Modified to use loginUser API)
+    ui.userLoginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const phone = document.getElementById('login-phone').value.trim();
+        
+        try {
+            const loginBtn = e.target.querySelector('button[type="submit"]');
+            loginBtn.textContent = 'Logging in...';
+            loginBtn.disabled = true;
+
+            const data = await loginUser(phone);
+            const matchedUser = data.user;
+            
+            if (matchedUser.userRole === 'Admin') {
+                // If a standard user tries to login with an admin's phone (not typical, but safe guard)
+                showNotification("This account is an Administrator account. Use the Admin Login portal.", 'red');
+                logoutUser();
+                return;
+            }
+
+            // The loginUser call sets userProfile. Check status locally and redirect.
+            if (matchedUser.status !== 'VERIFIED') {
+                 showUserBlocked();
+                 return;
+            }
+            
+            // Successful Login for a verified user
+            showNotification(`${matchedUser.userRole} login successful! Welcome, ${matchedUser.name}.`, 'green');
+            showDashboard();
+
+        } catch (error) {
+            console.error("Login Error:", error);
+            showNotification(error.message || "Login failed. Check phone number and if you are registered.", 'red');
+        } finally {
+            const loginBtn = e.target.querySelector('button[type="submit"]');
+            loginBtn.textContent = 'Login to Dashboard';
+            loginBtn.disabled = false;
+        }
+    });
+
+    document.getElementById('login-back-to-auth').addEventListener('click', () => showAuthSelection(currentSelectedRole)); 
+    document.getElementById('blocked-logout-btn').addEventListener('click', logoutUser); 
+    document.getElementById('admin-logout-btn').addEventListener('click', () => {
+        if (window.confirm("Are you sure you want to log out as Admin?")) {
+            logoutUser();
+        }
+    }); 
+    document.getElementById('dashboard-logout-btn').addEventListener('click', logoutUser); 
+
+
+    // Admin Tab Listeners 
+    ui.adminTabUsers.addEventListener('click', () => setActiveAdminTab(ui.adminTabUsers, ui.adminViewUsers));
+    ui.adminTabManagement.addEventListener('click', () => setActiveAdminTab(ui.adminTabManagement, ui.adminViewManagement));
+    ui.adminTabRequests.addEventListener('click', () => setActiveAdminTab(ui.adminTabRequests, ui.adminViewRequests));
+
+    // Dashboard Tab Listeners
+    ui.tabRequest.addEventListener('click', () => setActiveDashboardTab(ui.tabRequest, ui.viewRequest));
+    ui.tabDonor.addEventListener('click', () => setActiveDashboardTab(ui.tabDonor, ui.viewDonor));
+    
+    // Edit Profile Listener
+    document.getElementById('edit-profile-btn').addEventListener('click', () => {
+         initializeProfileSetupForm(true);
+         hideAllViews();
+         ui.profileSetup.classList.remove('hidden');
+    });
+
+    // Profile Form (Signup/Edit) Listener (Modified to use registerProfile/updateProfile API)
+    ui.profileForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const role = document.getElementById('userRoleHidden').value;
+        const isDonor = role === 'Donor';
+        const isEdit = !!userProfile; 
+        
+        // Only include optional fields if the user is a Donor
+        if (isDonor) {
+             if (ui.ageInput.value === '') { showNotification("Please enter your age.", 'red'); return; }
+             if (ui.weightInput.value === '') { showNotification("Please enter your weight.", 'red'); return; }
+             if (ui.bloodTypeInput.value === '') { showNotification("Please select your blood type.", 'red'); return; }
+        }
+
+        const lastDonationDateStr = ui.lastDonationDateInput.value;
+        const lastDonationTime = isDonor && lastDonationDateStr ? new Date(lastDonationDateStr).getTime() : null;
+        
+        // If a verified user edits their profile, set status to PENDING_VERIFICATION to force re-approval
+        const status = isEdit && userProfile.status === 'VERIFIED' ? 'PENDING_VERIFICATION' : 'PENDING_VERIFICATION';
+        
+        const newProfile = {
+            userId: isEdit ? userProfile.userId : userId, 
+            name: ui.nameInput.value.trim(),
+            phone: ui.phoneInput.value.trim(),
+            userRole: role,
+            pinCode: ui.pinCodeInput.value.trim(),
+            address: ui.addressInput.value.trim(),
+            status: status, 
+            // Donor specific fields
+            bloodType: isDonor ? ui.bloodTypeInput.value : null,
+            age: isDonor ? parseInt(ui.ageInput.value) : null,
+            weight: isDonor ? parseInt(ui.weightInput.value) : null,
+            gender: isDonor ? ui.genderInput.value : null,
+            lastDonationTime: lastDonationTime,
+            bloodReportLink: isDonor ? 'UPLOAD_SIMULATED' : null, // Simulate report upload
+        };
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.textContent = isEdit ? 'Updating Profile...' : 'Registering...';
+        submitBtn.disabled = true;
+        
+        try {
+            if (isEdit) {
+                await updateProfile(newProfile);
+                showNotification("Profile updated successfully. Re-verification may be required.", 'green');
+                showDashboard();
+            } else {
+                const data = await registerProfile(newProfile);
+                userProfile = data.user;
+                showNotification(`${role} registration submitted! Awaiting admin verification.`, 'green');
+                showUserBlocked();
+            }
+        } catch (error) {
+            console.error("Registration/Update Error:", error);
+            showNotification(error.message || `Failed to ${isEdit ? 'update' : 'register'} profile.`, 'red');
+        } finally {
+            submitBtn.textContent = isEdit ? 'Save Profile Changes' : 'Register & Await Verification';
+            submitBtn.disabled = false;
+        }
+    });
+
+
+    // Request Form Listener (Modified to use submitRequest API)
+    ui.requestForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        if (userProfile.status !== 'VERIFIED') {
+            showNotification("Request cannot be submitted. Your account is not yet verified by an administrator.", 'red');
+            return;
+        }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.textContent = 'Submitting...';
+        submitBtn.disabled = true;
+
+        const bloodTypeNeeded = document.getElementById('bloodTypeNeeded').value;
+        const requestPinCode = userProfile.userRole === 'Hospital' 
+            ? userProfile.pinCode 
+            : document.getElementById('request-pinCode').value.trim();
+            
+        const requestData = {
+             requesterId: userProfile.userId,
+             name: userProfile.name,
+             phone: userProfile.phone,
+             userRole: userProfile.userRole,
+             pinCode: requestPinCode,
+             bloodTypeNeeded: bloodTypeNeeded,
+        };
+
+        try {
+            await submitRequest(requestData);
+            showNotification("Urgent request submitted! Awaiting admin approval...", 'yellow');
+            updateDashboardData();
+            setActiveDashboardTab(ui.tabRequest, ui.viewRequest); 
+
+        } catch (error) {
+            console.error("Request Submission Error:", error);
+            showNotification(error.message || "Failed to submit request.", 'red');
+        } finally {
+            submitBtn.textContent = 'Submit Request & Find Nearby Donors';
+            submitBtn.disabled = false;
+        }
+    });
+
+    // Delete Account Listener (Modified to use deleteUser API)
+    ui.deleteAccountBtn.addEventListener('click', async () => {
+        if (window.confirm("Are you ABSOLUTELY SURE you want to delete your account? This action is permanent.")) {
+            ui.deleteAccountBtn.textContent = 'Deleting...';
+            ui.deleteAccountBtn.disabled = true;
+            try {
+                await deleteUser(userProfile.userId); 
+                showNotification("Profile successfully deleted. Returning to main menu.", 'red');
+                logoutUser();
+            } catch (error) {
+                showNotification(`Deletion failed: ${error.message}`, 'red');
+            } finally {
+                ui.deleteAccountBtn.textContent = 'Permanently Delete My Account';
+                ui.deleteAccountBtn.disabled = false;
             }
         }
+    });
 
-        if (!Array.isArray(requestsArray) || requestsArray.length === 0) {
-          document.getElementById('no-requests').classList.remove('hidden');
-          return;
-        }
-        document.getElementById('no-requests').classList.add('hidden');
 
-        const yellowIcon = new L.Icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-        });
-
-        requestsArray.forEach(r => {
-          // 2. Plot Request Marker on Map
-          const pin = r.requestPinCode || r.pinCode;
-          if (pin && donorMap){
-            const coords=getCoordsForPin(pin)
-               L.marker(coords, { icon: yellowIcon })
-                .addTo(donorMap)
-                .bindPopup(`<b>REQUEST: ${r.bloodTypeNeeded}</b><br/>Hospital: ${r.name}<br/>Pin: ${pin}`);
-          }
-
-          // 3. Render List Card
-          const card = document.createElement('div');
-          card.className = 'bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center';
-          card.innerHTML = `
-            <div>
-              <div class="font-bold text-red-600">${r.bloodTypeNeeded || 'Unknown'}</div>
-              <div class="text-sm text-gray-600">Pin: ${r.requestPinCode || r.pinCode || 'N/A'} • By: ${r.name || 'Unknown'}</div>
-              <div class="text-xs text-gray-500">Status: ${r.status || (r.isPendingAdminApproval ? 'Pending' : 'Active')}</div>
-            </div>
-            <div class="flex flex-col items-end gap-2">
-              ${eligibility && eligibility.eligible ? `<button class="respond-btn py-2 px-3 bg-green-100 text-green-700 rounded-full text-sm font-semibold" data-id="${r.userId || r.requesterId}">I Can Donate</button>` : `<div class="text-xs ${eligibility ? eligibility.color : 'text-gray-500'}">${eligibility ? eligibility.status : ''}</div>`}
-            </div>
-          `;
-          listEl.appendChild(card);
-
-          const respondBtn = card.querySelector('.respond-btn');
-          if (respondBtn) {
-            respondBtn.addEventListener('click', () => {
-              const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-              const idx = allUsers.findIndex(u => (u.userId === r.userId) || (u.userId === r.requesterId));
-              if (idx > -1) {
-                allUsers[idx].donorMatch = { donorId: userId, donorName: (userProfile && userProfile.name) || 'Anonymous', matchedAt: Date.now() };
-                localStorage.setItem(ALL_USERS_KEY, JSON.stringify(allUsers));
-                showNotification('You indicated you can donate — admin will be notified (local).', 'green');
-                API.put(`/api/notify-match/${r._id || r.requesterId}`, { donorId: userId }).catch(()=>{});
-                renderDonorRequests(requestsArray, eligibility);
-                renderMyRequests();
-              } else {
-                showNotification('Unable to record match locally.', 'red');
-              }
-            });
-          }
-        });
-      } catch (err) { console.error('renderDonorRequests error', err); }
-    }
-
-    function renderMyRequests() {
-      try {
-        const myListEl = document.getElementById('my-requests-list');
-        myListEl.innerHTML = '';
-        const allUsers = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
-        const myRequests = allUsers.filter(u => (u.userId === userId && u.isRequestActive) || (userProfile && userProfile.userRole === 'Hospital' && u.userId === userId && u.isRequestActive));
-        if (!myRequests || myRequests.length === 0) {
-          document.getElementById('no-open-requests').classList.remove('hidden');
-          return;
-        }
-        document.getElementById('no-open-requests').classList.add('hidden');
-        myRequests.forEach(r => {
-          const card = document.createElement('div');
-          card.className = 'bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center';
-          card.innerHTML = `
-            <div>
-              <div class="font-bold">${r.bloodTypeNeeded || r.bloodTypeNeeded || 'Unknown'} • Pin ${r.requestPinCode || r.pinCode || 'N/A'}</div>
-              <div class="text-sm text-gray-600">Status: ${r.isPendingAdminApproval ? 'Pending' : (r.isRequestActive ? 'Active' : 'Closed')}</div>
-            </div>
-            <div class="flex gap-2">
-              <button class="cancel-request text-sm text-red-600">Cancel</button>
-            </div>
-          `;
-          myListEl.appendChild(card);
-
-          card.querySelector('.cancel-request').addEventListener('click', () => {
-            if (!confirm('Cancel this request?')) return;
-            // API call to cancel (deny) the request
-            API.put(`/api/admin/approve-request/${r._requestId || r.userId}?adminSecret=${encodeURIComponent('hellowrld')}`, { action: 'deny' });
-            fetchAndSyncUsers();
-          });
-        });
-      } catch (err) { console.error('renderMyRequests error', err); }
-    }
-
-    function initializeApp() {
-        seedSampleData();
-        loadProfile();
-        if (userProfile && userProfile.userRole === 'Admin') {
-            showAdminDashboard();
-        } else if (userProfile && userProfile.status === 'VERIFIED') {
-            showDashboard();
-        } else if (userProfile && userProfile.status !== 'VERIFIED') {
-             showUserBlocked();
-        } else {
-            showRoleSelection();
-        }
+    // --- START APPLICATION ---
+    async function initializeApp() {
         ui.lastDonationDateInput.max = new Date().toISOString().split('T')[0];
         document.querySelectorAll('#profile-form input[required], #profile-form select[required], #profile-form textarea[required]').forEach(input => {
              input.dataset.originalRequired = 'true';
         });
+
+        // 1. Attempt to sync profile from server using local ID
+        const profileLoaded = await fetchAndSyncProfile(); 
+        
+        ui.loading.classList.add('hidden'); // Hide loading screen
+        
+        // 2. Determine initial view based on synced profile
+        if (profileLoaded) {
+            if (userProfile.userRole === 'Admin') {
+                showAdminDashboard();
+            } else if (userProfile.status === 'VERIFIED') {
+                showDashboard();
+            } else {
+                 // PENDING_VERIFICATION or DENIED
+                 showUserBlocked();
+            }
+        } else {
+            showRoleSelection();
+        }
     }
 
     window.onload = initializeApp;
