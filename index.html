@@ -368,16 +368,36 @@ qs('admin-back-to-role').addEventListener('click', ()=> { adminLoginBox.classLis
 
 /* Toggle registration fields depending on role */
 function toggleRegistrationFields(role) {
-  if (role === 'Hospital') {
-    qs('donor-specific-fields').classList.add('hidden');
-    qs('hospital-specific-fields').classList.remove('hidden');
-    qs('userRoleHidden').value = 'Hospital';
+  const donorFields = qs('donor-specific-fields');
+  const hospitalFields = qs('hospital-specific-fields');
+
+  if (role === "Hospital") {
+    donorFields.classList.add("hidden");
+    hospitalFields.classList.remove("hidden");
+    qs("userRoleHidden").value = "Hospital";
+
+    // Remove donor required fields
+    qs("bloodType").removeAttribute("required");
+    qs("pinCode").removeAttribute("required");
+
+    // Add hospital required fields
+    qs("hospital-pinCode").setAttribute("required", "true");
+
   } else {
-    qs('donor-specific-fields').classList.remove('hidden');
-    qs('hospital-specific-fields').classList.add('hidden');
-    qs('userRoleHidden').value = 'Donor';
+    donorFields.classList.remove("hidden");
+    hospitalFields.classList.add("hidden");
+    qs("userRoleHidden").value = "Donor";
+
+    // Add donor required fields
+    qs("bloodType").setAttribute("required", "true");
+    qs("pinCode").setAttribute("required", "true");
+
+    // Remove hospital required fields
+    qs("hospital-pinCode").removeAttribute("required");
   }
 }
+
+
 
 /* Upload medical document (simulated): show filename */
 qs('medicalDocumentFile').addEventListener('change', (e) => {
