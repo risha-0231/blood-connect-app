@@ -1,1089 +1,695 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blood Connect Pro (Bengaluru Area Donor Matching)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-   
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Blood Connect Pro (Bengaluru)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.socket.io/4.7.1/socket.io.min.js" crossorigin="anonymous"></script>
 
-    <script src="https://cdn.socket.io/4.7.1/socket.io.min.js" integrity="" crossorigin="anonymous"></script>
-   
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
-        .btn-primary { background-color: #e53e3e; transition: background-color 0.15s ease, transform 0.1s ease; }
-        .btn-primary:hover { background-color: #c53030; transform: translateY(-1px); }
-        .main-card { background-color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); border-radius: 0.75rem; padding: 1.5rem; }
-        .blood-type-label { display: inline-block; padding: 0.25rem 0.75rem; font-weight: 700; border-radius: 9999px; text-align: center; }
-        .type-A-pos { background-color: #f59e0b; color: #fff; }
-        .type-A-neg { background-color: #d97706; color: #fff; }
-        .type-B-pos { background-color: #10b981; color: #fff; }
-        .type-B-neg { background-color: #059669; color: #fff; }
-        .type-O-pos { background-color: #3b82f6; color: #fff; }
-        .type-O-neg { background-color: #2563eb; color: #fff; }
-        .type-AB-pos { background-color: #a855f7; color: #fff; }
-        .type-AB-neg { background-color: #7c3aed; color: #fff; }
-        #map { height: 300px; border-radius: 0.5rem; margin-top: 1rem; }
-        .tab-button.active { border-bottom: 3px solid #e53e3e; font-weight: 700; color: #e53e3e; }
-        .tab-button { transition: all 0.15s ease; padding-bottom: 0.5rem; }
-        .modal { display: none; background-color: rgba(0, 0, 0, 0.5); }
-    </style>
+  <style>
+    body { font-family: 'Inter', sans-serif; background:#f8f9fa; }
+    .btn-primary { background:#e53e3e; color:white; transition: all .12s ease; }
+    .btn-primary:hover { background:#c53030; transform: translateY(-1px); }
+    .main-card { background:white; width:95%; max-width:1000px; box-shadow:0 10px 20px rgba(0,0,0,0.06); }
+    #donorMap { height: 320px; border-radius: 0.6rem; border:2px solid #e53e3e; }
+    .role-bubble-card { transition: all .18s ease; cursor:pointer; border-radius:1rem; box-shadow:0 8px 18px rgba(0,0,0,0.06); min-height:160px; }
+    .donor-bubble { background:#fff1f1; border:3px solid #f87171; }
+    .hospital-bubble { background:#f0f8ff; border:3px solid #60a5fa; }
+    .admin-bubble { background:#f3f4f6; border:3px solid #9ca3af; }
+    .hidden-for-donor { display:none !important; }
+  </style>
 </head>
 <body>
+  <div id="app" class="min-h-screen p-6 flex justify-center items-start">
+    <div class="main-card rounded-2xl p-8 border-t-8 border-red-600">
+      <header class="text-center mb-8">
+        <h1 class="text-3xl font-extrabold text-red-700">🩸 Blood Connect Pro (Bengaluru)</h1>
+        <p class="text-gray-600 mt-1">Local Emergency Donor Matching</p>
+      </header>
 
-    <div id="app-container" class="min-h-screen flex items-center justify-center p-4">
-        <div id="main-content" class="main-card w-full lg:max-w-4xl">
-            <h1 class="text-3xl font-extrabold text-red-600 mb-6 text-center">Blood Connect Pro</h1>
-            <div id="view-container">
-                <!-- Views will be rendered here -->
-            </div>
-            
-            <!-- Global Notification Area -->
-            <div id="notification-area" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
-        </div>
-    </div>
+      <div id="global-message-box" class="fixed inset-x-0 top-4 z-50 flex justify-center pointer-events-none">
+        <div id="global-message-content" class="pointer-events-auto bg-white p-3 rounded shadow text-center"></div>
+      </div>
 
-    <!-- Modals -->
-    <div id="modal-container" class="fixed inset-0 z-50 modal flex items-center justify-center">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 id="modal-title" class="text-xl font-bold mb-4"></h2>
-            <div id="modal-body"></div>
-            <div class="mt-6 flex justify-end gap-3">
-                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg transition hover:bg-gray-300">Cancel</button>
-                <button id="modal-confirm-btn" class="px-4 py-2 btn-primary text-white rounded-lg">Confirm</button>
-            </div>
+      <!-- Role selection -->
+      <div id="role-selection" class="space-y-6 text-center">
+        <h2 class="text-2xl font-bold text-red-700">Select Your Role</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button data-role="Donor" class="select-role-btn role-bubble-card donor-bubble p-6">
+            <div class="text-red-700 font-bold text-lg">I am a Donor</div>
+            <div class="text-sm text-gray-600 mt-1">View urgent requests in your area</div>
+          </button>
+          <button data-role="Hospital" class="select-role-btn role-bubble-card hospital-bubble p-6">
+            <div class="text-blue-700 font-bold text-lg">I am a Hospital</div>
+            <div class="text-sm text-gray-600 mt-1">Create urgent blood requests</div>
+          </button>
+          <button id="select-admin-role-btn" class="role-bubble-card admin-bubble p-6">
+            <div class="text-gray-800 font-bold text-lg">Administrator</div>
+            <div class="text-sm text-gray-600 mt-1">Manage users and requests</div>
+          </button>
         </div>
+      </div>
+
+      <!-- Auth selection -->
+      <div id="auth-selection" class="hidden text-center space-y-4">
+        <h2 class="text-2xl font-semibold">Welcome, <span id="auth-role-display"></span></h2>
+        <div class="space-y-3">
+          <button id="auth-login-btn" class="w-full py-3 rounded-xl btn-primary">Login</button>
+          <button id="auth-register-btn" class="w-full py-3 rounded-xl border border-red-200 text-red-700">Register</button>
+          <button id="auth-back-to-role" class="w-full text-sm text-gray-500">← Back</button>
+        </div>
+      </div>
+
+      <!-- Login form -->
+      <div id="user-login" class="hidden">
+        <h3 class="text-lg font-semibold mb-3"><span id="login-role-display"></span> Login</h3>
+        <form id="user-login-form" class="space-y-3">
+          <input id="login-phone" placeholder="Phone (10 digits)" class="w-full p-3 border rounded" required />
+          <button class="w-full py-3 rounded-xl btn-primary">Login</button>
+          <button type="button" id="login-back-to-auth" class="w-full text-sm text-gray-500">← Back</button>
+        </form>
+      </div>
+
+      <!-- Register / Profile -->
+      <div id="profile-setup" class="hidden">
+        <h3 class="text-lg font-semibold mb-3"><span id="registration-role"></span> Registration</h3>
+        <form id="profile-form" class="space-y-3">
+          <input type="hidden" id="userRoleHidden" value="Donor" />
+          <input id="name" placeholder="Full name" class="w-full p-3 border rounded" required />
+          <input id="phone" placeholder="Phone" class="w-full p-3 border rounded" required />
+          <div class="grid grid-cols-2 gap-2">
+            <input id="pinCode" placeholder="Pin code (6 digits)" class="w-full p-3 border rounded" required />
+            <select id="bloodType" class="w-full p-3 border rounded">
+              <option value="">Blood type (optional)</option>
+              <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+            </select>
+          </div>
+          <button class="w-full py-3 rounded-xl btn-primary">Register</button>
+          <button type="button" id="signup-back-to-role" class="w-full text-sm text-gray-500">← Back</button>
+        </form>
+      </div>
+
+      <!-- Admin login -->
+      <div id="admin-login" class="hidden">
+        <h3 class="text-lg font-semibold mb-3">Admin Login</h3>
+        <form id="admin-login-form" class="space-y-3">
+          <input id="admin-pin" placeholder="Admin secret" class="w-full p-3 border rounded" />
+          <button class="w-full py-3 rounded-xl btn-primary">Enter Admin</button>
+          <button type="button" id="admin-back-to-role" class="w-full text-sm text-gray-500">← Back</button>
+        </form>
+      </div>
+
+      <!-- Blocked (waiting verification) -->
+      <div id="user-blocked" class="hidden p-4 bg-red-50 rounded">
+        <h3 class="font-bold text-red-600">Account pending verification</h3>
+        <p class="text-gray-600">Your account is awaiting admin verification.</p>
+        <button id="blocked-logout-btn" class="mt-3 text-sm text-gray-500">Back to main</button>
+      </div>
+
+      <!-- Admin dashboard -->
+      <div id="admin-dashboard" class="hidden">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-semibold">Admin Dashboard</h3>
+          <button id="admin-logout-btn" class="text-sm text-gray-600">Logout</button>
+        </div>
+
+        <div class="flex space-x-2 mb-4">
+          <button id="admin-tab-users" class="py-2 px-3 border-b-2 border-blue-600 text-blue-600">Pending Users</button>
+          <button id="admin-tab-management" class="py-2 px-3">All Users</button>
+          <button id="admin-tab-requests" class="py-2 px-3">Pending Requests</button>
+        </div>
+
+        <div id="admin-view-users">
+          <h4 class="font-semibold mb-2">Pending Users</h4>
+          <div id="pending-users-list" class="space-y-2"></div>
+        </div>
+
+        <div id="admin-view-management" class="hidden">
+          <h4 class="font-semibold mb-2">All Users</h4>
+          <div id="all-users-list" class="space-y-2"></div>
+        </div>
+
+        <div id="admin-view-requests" class="hidden">
+          <h4 class="font-semibold mb-2">Pending Requests</h4>
+          <div id="pending-requests-list" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <!-- Main dashboard -->
+      <div id="main-dashboard" class="hidden">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-semibold">Dashboard (<span id="dashboard-role-display"></span>)</h3>
+          <div class="space-x-2">
+            <button id="edit-profile-btn" class="text-sm text-gray-600">Edit</button>
+            <button id="logout-btn" class="text-sm text-gray-600">Logout</button>
+          </div>
+        </div>
+
+        <!-- donor status -->
+        <div class="bg-gray-50 p-4 rounded mb-4">
+          <div class="flex justify-between">
+            <div>
+              <div class="text-sm text-gray-600">Donor Status: <strong id="donor-status"></strong></div>
+              <div class="text-xs text-gray-500">Pin: <code id="user-pin-display"></code> • Blood: <code id="user-blood-display"></code></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- tabs -->
+        <div class="flex space-x-2 mb-4">
+          <button id="tab-request" class="hospital-only py-2 px-3 rounded text-red-600 border-b-2 border-red-600">Request Blood & Find Donors</button>
+          <button id="tab-donor" class="py-2 px-3 rounded text-gray-600">Available Donor Requests</button>
+        </div>
+
+        <!-- Hospital-only request area -->
+        <div id="view-request" class="hospital-only">
+          <h4 class="font-semibold mb-2">Submit Urgent Blood Need</h4>
+          <form id="request-form" class="space-y-3 p-4 bg-white border rounded">
+            <div class="grid grid-cols-2 gap-2">
+              <input id="request-pinCode" placeholder="Area pin code (where blood needed)" class="p-3 border rounded" required />
+              <select id="bloodTypeNeeded" class="p-3 border rounded" required>
+                <option value="">Blood Type Needed</option>
+                <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+              </select>
+            </div>
+            <button id="submit-request-btn" class="w-full py-3 rounded-xl btn-primary">Submit Request & Find Nearby Donors</button>
+          </form>
+
+          <div class="mt-4">
+            <h5 class="font-semibold">Matching Donors Near Requested Area</h5>
+            <div id="matched-pin-display" class="text-sm text-gray-600 mb-2">...</div>
+            <div id="donorMap" class="mb-3"></div>
+            <div id="donors-list" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- Donor view: available requests -->
+        <div id="view-donor">
+          <h4 class="font-semibold mb-2">Emergency Requests Near You</h4>
+          <div id="requests-list" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <div id="profile-management" class="hidden"></div>
     </div>
-    
+  </div>
+
 <script>
-    // --- Global Variables ---
-    const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:4000/api' : '/api';
-    const ADMIN_SECRET = 'hellowrld'; // WARNING: Hardcoded for demo/admin access
-    let userProfile = null;
-    let allUsers = [];
-    let allRequests = [];
-    let socket;
-
-    // --- Utility Functions ---
-
-    // A map to get the correct Tailwind color class for each blood type
-    const bloodTypeToClass = {
-        'A+': 'type-A-pos', 'A-': 'type-A-neg',
-        'B+': 'type-B-pos', 'B-': 'type-B-neg',
-        'O+': 'type-O-pos', 'O-': 'type-O-neg',
-        'AB+': 'type-AB-pos', 'AB-': 'type-AB-neg',
-    };
-
-    // Helper to render blood type label
-    function getBloodTypeLabel(type) {
-        const cls = bloodTypeToClass[type] || 'bg-gray-500 text-white';
-        return `<span class="blood-type-label ${cls}">${type}</span>`;
-    }
-
-    // Helper for making API calls
-    const API = {
-        async post(url, data) {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-            return res.json();
-        },
-        async get(url) {
-            const res = await fetch(url);
-            return res.json();
-        },
-        async put(url, data = {}) {
-            const res = await fetch(url, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-            return res.json();
-        }
-    };
-
-    // Notification UI
-    function showNotification(message, color = 'red') {
-        const area = document.getElementById('notification-area');
-        const notification = document.createElement('div');
-        let bgColor, textColor;
-
-        switch (color) {
-            case 'green':
-                bgColor = 'bg-green-500';
-                textColor = 'text-white';
-                break;
-            case 'blue':
-                bgColor = 'bg-blue-500';
-                textColor = 'text-white';
-                break;
-            case 'red':
-            default:
-                bgColor = 'bg-red-500';
-                textColor = 'text-white';
-                break;
-        }
-
-        notification.className = `p-3 rounded-lg shadow-lg ${bgColor} ${textColor} text-sm max-w-xs transition-opacity duration-300 opacity-0 transform translate-x-10`;
-        notification.textContent = message;
-
-        area.appendChild(notification);
-
-        // Animate in
-        setTimeout(() => {
-            notification.classList.remove('opacity-0', 'translate-x-10');
-            notification.classList.add('opacity-100', 'translate-x-0');
-        }, 10);
-
-        // Animate out and remove
-        setTimeout(() => {
-            notification.classList.remove('opacity-100', 'translate-x-0');
-            notification.classList.add('opacity-0', 'translate-x-10');
-            setTimeout(() => notification.remove(), 300);
-        }, 5000);
-    }
-    
-    // Custom Modal / Confirmation Dialog
-    function showCustomConfirm(title, message, onConfirm) {
-        const modal = document.getElementById('modal-container');
-        document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-body').innerHTML = `<p class="text-gray-600">${message}</p>`;
-
-        const confirmBtn = document.getElementById('modal-confirm-btn');
-        const cancelBtn = document.getElementById('modal-cancel-btn');
-
-        const confirmHandler = () => {
-            modal.style.display = 'none';
-            confirmBtn.removeEventListener('click', confirmHandler);
-            cancelBtn.removeEventListener('click', cancelHandler);
-            onConfirm(true);
-        };
-        const cancelHandler = () => {
-            modal.style.display = 'none';
-            confirmBtn.removeEventListener('click', confirmHandler);
-            cancelBtn.removeEventListener('click', cancelHandler);
-            onConfirm(false);
-        };
-
-        confirmBtn.textContent = 'Yes, Proceed';
-        cancelBtn.textContent = 'Cancel';
-        
-        confirmBtn.addEventListener('click', confirmHandler);
-        cancelBtn.addEventListener('click', cancelHandler);
-        
-        modal.style.display = 'flex';
-    }
-
-
-    // --- State Management ---
-    function saveProfile(profile) {
-        userProfile = profile;
-        localStorage.setItem('userProfile', JSON.stringify(profile));
-    }
-
-    function loadProfile() {
-        const storedProfile = localStorage.getItem('userProfile');
-        if (storedProfile) {
-            userProfile = JSON.parse(storedProfile);
-        }
-    }
-
-    function clearProfile() {
-        userProfile = null;
-        localStorage.removeItem('userProfile');
-        initializeApp();
-    }
-    
-    // --- Data Synchronization ---
-    async function fetchAndSyncUsers() {
-        try {
-            const data = await API.get(`${API_BASE}/sync-storage`);
-            if (data.users && data.requests) {
-                allUsers = data.users;
-                allRequests = data.requests;
-                // Re-render the current view to reflect new data
-                if (userProfile && userProfile.userRole === 'Admin') {
-                    renderAdminPendingUsers(); 
-                    renderAdminRequests();
-                } else if (userProfile && userProfile.status === 'VERIFIED') {
-                    // Update userProfile from the synced data
-                    const updatedProfile = allUsers.find(u => u.userId === userProfile.userId);
-                    if (updatedProfile) {
-                        saveProfile(updatedProfile);
-                    }
-                    renderDonors(getMatchingDonors(allRequests, allUsers, userProfile));
-                    renderMyRequests();
-                }
-            }
-        } catch (error) {
-            console.error('Failed to sync data:', error);
-            showNotification('Failed to load data from server. Please refresh.', 'red');
-        }
-    }
-
-
-    // --- UI Elements (Placeholders for easier access) ---
-    const ui = {};
-
-    function setupUIReferences() {
-        ui.viewContainer = document.getElementById('view-container');
-        ui.mainContent = document.getElementById('main-content');
-        ui.profileForm = document.getElementById('profile-form');
-        ui.dashboardTabs = document.getElementById('dashboard-tabs');
-        ui.userRole = document.getElementById('userRole');
-        ui.bloodType = document.getElementById('bloodType');
-        ui.pinCode = document.getElementById('pinCode');
-        ui.lastDonationDateInput = document.getElementById('lastDonationDate');
-        ui.requestBloodType = document.getElementById('requestBloodType');
-        ui.requestPinCode = document.getElementById('requestPinCode');
-    }
-
-    // --- RENDER VIEWS ---
-
-    function showRoleSelection() {
-        ui.viewContainer.innerHTML = `
-            <div class="text-center p-8 bg-gray-50 rounded-lg shadow-inner">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-800">Welcome to Blood Connect Pro</h2>
-                <p class="mb-8 text-gray-600">Please choose your role to register or log in.</p>
-                <div class="flex flex-col sm:flex-row justify-center gap-4">
-                    <button onclick="showRegistration('Donor')" class="w-full sm:w-1/2 p-4 text-lg bg-red-600 text-white rounded-xl shadow-lg hover:bg-red-700 transition">
-                        I am a Donor
-                    </button>
-                    <button onclick="showRegistration('Hospital')" class="w-full sm:w-1/2 p-4 text-lg bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transition">
-                        I am a Hospital
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-
-    function showRegistration(role) {
-        const requiredIfDonor = role === 'Donor' ? 'required' : '';
-        const donorOnlyFields = role === 'Donor' ? `
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label for="bloodType" class="block text-sm font-medium text-gray-700">Blood Type *</label>
-                    <select id="bloodType" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" ${requiredIfDonor}>
-                        <option value="">Select</option>
-                        <option value="A+">A+</option><option value="A-">A-</option>
-                        <option value="B+">B+</option><option value="B-">B-</option>
-                        <option value="O+">O+</option><option value="O-">O-</option>
-                        <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="lastDonationDate" class="block text-sm font-medium text-gray-700">Last Donation Date</label>
-                    <input type="date" id="lastDonationDate" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
-                </div>
-            </div>
-            <div class="grid grid-cols-3 gap-4">
-                <div>
-                    <label for="age" class="block text-sm font-medium text-gray-700">Age *</label>
-                    <input type="number" id="age" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" min="18" max="65" ${requiredIfDonor}>
-                </div>
-                <div>
-                    <label for="weight" class="block text-sm font-medium text-gray-700">Weight (kg) *</label>
-                    <input type="number" id="weight" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" min="50" ${requiredIfDonor}>
-                </div>
-                <div>
-                    <label for="gender" class="block text-sm font-medium text-gray-700">Gender *</label>
-                    <select id="gender" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" ${requiredIfDonor}>
-                        <option value="">Select</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-            </div>
-            <div class="col-span-full">
-                <label for="bloodReportLink" class="block text-sm font-medium text-gray-700">Blood Report Link (Optional)</label>
-                <input type="url" id="bloodReportLink" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" placeholder="https://drive.google.com/link">
-            </div>
-        ` : '';
-
-        ui.viewContainer.innerHTML = `
-            <div class="max-w-xl mx-auto">
-                <h2 class="text-2xl font-bold mb-6 text-center text-${role === 'Donor' ? 'red' : 'blue'}-600">
-                    ${role} Registration
-                </h2>
-                <form id="profile-form" class="space-y-4">
-                    <input type="hidden" id="userRole" value="${role}">
-                    
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label for="name" class="block text-sm font-medium text-gray-700">Name / Hospital Name *</label>
-                            <input type="text" id="name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" required>
-                        </div>
-                        <div>
-                            <label for="phone" class="block text-sm font-medium text-gray-700">Phone Number (Login Key) *</label>
-                            <input type="tel" id="phone" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" required>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label for="pinCode" class="block text-sm font-medium text-gray-700">Pincode (e.g., 560001) *</label>
-                            <input type="text" id="pinCode" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" pattern="[0-9]{6}" title="Must be a 6-digit number" required>
-                        </div>
-                        <div class="col-span-1">
-                            <label for="address" class="block text-sm font-medium text-gray-700">Address *</label>
-                            <input type="text" id="address" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" required>
-                        </div>
-                    </div>
-                    
-                    ${donorOnlyFields}
-
-                    <button type="submit" class="w-full py-3 mt-4 btn-primary text-white rounded-lg text-lg transition">
-                        Register
-                    </button>
-
-                    <button type="button" onclick="showLogin()" class="w-full py-3 text-sm text-gray-600 hover:text-red-600 transition">
-                        Already Registered? Log In
-                    </button>
-                    <button type="button" onclick="showRoleSelection()" class="w-full py-3 text-sm text-gray-600 hover:text-red-600 transition">
-                        &larr; Back to Role Selection
-                    </button>
-                </form>
-            </div>
-        `;
-        setupUIReferences();
-        if (ui.lastDonationDateInput) {
-             ui.lastDonationDateInput.max = new Date().toISOString().split('T')[0];
-        }
-        document.getElementById('profile-form').onsubmit = handleRegistration;
-    }
-
-    function showLogin() {
-        ui.viewContainer.innerHTML = `
-            <div class="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg">
-                <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Log In</h2>
-                <form id="login-form" class="space-y-4">
-                    <div>
-                        <label for="loginPhone" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input type="tel" id="loginPhone" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" required>
-                    </div>
-                    <button type="submit" class="w-full py-3 mt-4 btn-primary text-white rounded-lg text-lg transition">
-                        Log In
-                    </button>
-                    <button type="button" onclick="showRoleSelection()" class="w-full py-3 text-sm text-gray-600 hover:text-red-600 transition">
-                        &larr; Back to Registration
-                    </button>
-                </form>
-            </div>
-        `;
-        document.getElementById('login-form').onsubmit = handleLogin;
-    }
-
-    function showDashboard() {
-        ui.viewContainer.innerHTML = `
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">Welcome, ${userProfile.name}</h2>
-                <button onclick="clearProfile()" class="text-sm text-gray-500 hover:text-red-500 transition">Log Out</button>
-            </div>
-            
-            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-lg shadow-sm">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 text-blue-700">
-                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm text-blue-700">
-                            Your status: <span class="font-semibold">${userProfile.status}</span>. Role: <span class="font-semibold">${userProfile.userRole}</span>.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex border-b border-gray-200 mb-4" id="dashboard-tabs">
-                <button class="tab-button p-2 mr-4 text-gray-600 active" data-target="donors-tab">
-                    ${userProfile.userRole === 'Donor' ? 'Active Requests' : 'Find Donors'}
-                </button>
-                <button class="tab-button p-2 mr-4 text-gray-600" data-target="my-requests-tab">
-                    ${userProfile.userRole === 'Donor' ? 'My Donor Status' : 'My Requests'}
-                </button>
-                <button class="tab-button p-2 text-gray-600" data-target="profile-tab">
-                    My Profile
-                </button>
-            </div>
-
-            <!-- Tab Content -->
-            <div id="donors-tab" class="tab-content">
-                <div id="donor-actions" class="mb-4">
-                    ${userProfile.userRole === 'Hospital' ? `
-                        <button onclick="showRequestModal()" class="btn-primary text-white px-4 py-2 rounded-lg shadow-md transition">
-                            Request Blood
-                        </button>
-                    ` : `
-                        <p class="text-sm text-gray-500 italic">As a Donor, you can view the active blood requests from Hospitals in this area.</p>
-                    `}
-                </div>
-                <div id="donors-list" class="space-y-4">
-                    <!-- Donors or Active Requests will be listed here -->
-                    <p class="text-center text-gray-500">Loading donor matches or active requests...</p>
-                </div>
-            </div>
-
-            <div id="my-requests-tab" class="tab-content hidden">
-                <div id="my-requests-list" class="space-y-4">
-                    <!-- My Requests (Hospital) or Donor Status (Donor) will be listed here -->
-                </div>
-            </div>
-
-            <div id="profile-tab" class="tab-content hidden">
-                <div id="profile-details" class="bg-gray-50 p-4 rounded-lg shadow-inner">
-                    <p><strong>Role:</strong> ${userProfile.userRole}</p>
-                    <p><strong>Phone:</strong> ${userProfile.phone}</p>
-                    <p><strong>Pincode:</strong> ${userProfile.pinCode}</p>
-                    ${userProfile.userRole === 'Donor' ? `
-                        <p><strong>Blood Type:</strong> ${getBloodTypeLabel(userProfile.bloodType)}</p>
-                        <p><strong>Last Donation:</strong> ${userProfile.lastDonationTime ? new Date(userProfile.lastDonationTime).toLocaleDateString() : 'N/A'}</p>
-                        <p><strong>Age/Weight:</strong> ${userProfile.age} / ${userProfile.weight} kg</p>
-                        <p><strong>Report Link:</strong> ${userProfile.bloodReportLink || 'N/A'}</p>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-        setupUIReferences();
-        setupTabs();
-        fetchAndSyncUsers();
-    }
-    
-    function showUserBlocked() {
-         ui.viewContainer.innerHTML = `
-            <div class="text-center p-8 bg-yellow-50 rounded-xl shadow-lg">
-                <h2 class="text-2xl font-bold mb-4 text-yellow-700">Account Pending Verification</h2>
-                <p class="mb-6 text-gray-600">
-                    Thank you for registering. Your account is currently in the **${userProfile.status}** state.
-                    Please wait for an administrator to verify your profile before you can access the dashboard.
-                </p>
-                <p class="text-sm text-gray-500">Status will update automatically once approved.</p>
-                <button onclick="clearProfile()" class="mt-6 text-sm text-gray-500 hover:text-red-500 transition">Log Out</button>
-            </div>
-        `;
-    }
-    
-    function showAdminDashboard() {
-        ui.viewContainer.innerHTML = `
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
-                <button onclick="clearProfile()" class="text-sm text-gray-500 hover:text-red-500 transition">Log Out</button>
-            </div>
-
-            <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-lg shadow-sm">
-                <p class="text-sm text-red-700 font-semibold">
-                    ADMIN MODE: You have access to all system data and control features.
-                </p>
-            </div>
-
-            <div class="flex border-b border-gray-200 mb-4" id="admin-tabs">
-                <button class="tab-button p-2 mr-4 text-gray-600 active" data-target="pending-users-tab">
-                    Pending Users
-                </button>
-                <button class="tab-button p-2 text-gray-600" data-target="all-requests-tab">
-                    Manage Requests
-                </button>
-            </div>
-
-            <!-- Tab Content: Pending Users -->
-            <div id="pending-users-tab" class="tab-content">
-                <h3 class="text-xl font-semibold mb-4">Users Pending Verification</h3>
-                <div id="pending-users-list" class="space-y-4">
-                    <p class="text-center text-gray-500">Loading pending users...</p>
-                </div>
-            </div>
-
-            <!-- Tab Content: Manage Requests -->
-            <div id="all-requests-tab" class="tab-content hidden">
-                 <h3 class="text-xl font-semibold mb-4">All Blood Requests</h3>
-                <div id="admin-requests-list" class="space-y-4">
-                    <p class="text-center text-gray-500">Loading requests...</p>
-                </div>
-            </div>
-        `;
-        setupUIReferences();
-        setupTabs();
-        fetchAndSyncUsers();
-    }
-
-
-    // --- HANDLERS AND LOGIC ---
-
-    function setupTabs() {
-        const tabs = document.querySelectorAll('.tab-button');
-        const contents = document.querySelectorAll('.tab-content');
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-
-                contents.forEach(c => c.classList.add('hidden'));
-                const targetId = tab.getAttribute('data-target');
-                document.getElementById(targetId).classList.remove('hidden');
-                
-                // Trigger re-render of relevant content on tab switch
-                if (targetId === 'all-requests-tab') renderAdminRequests();
-                if (targetId === 'pending-users-tab') renderAdminPendingUsers();
-                if (targetId === 'donors-tab' && userProfile.userRole === 'Hospital') {
-                     renderDonors(getMatchingDonors(allRequests, allUsers, userProfile));
-                } else if (targetId === 'donors-tab' && userProfile.userRole === 'Donor') {
-                     renderDonors(getDonorViewRequests(allRequests, allUsers));
-                } else if (targetId === 'my-requests-tab') {
-                    renderMyRequests();
-                }
-            });
-        });
-        
-        // Initial render of the first tab's content
-        const activeTabTarget = tabs[0].getAttribute('data-target');
-        if (activeTabTarget === 'donors-tab' && userProfile.userRole === 'Hospital') {
-             renderDonors(getMatchingDonors(allRequests, allUsers, userProfile));
-        } else if (activeTabTarget === 'donors-tab' && userProfile.userRole === 'Donor') {
-             renderDonors(getDonorViewRequests(allRequests, allUsers));
-        } else if (activeTabTarget === 'my-requests-tab') {
-            renderMyRequests();
-        }
-    }
-    
-    function getMatchingDonors(requests, users, profile) {
-        if (profile.userRole !== 'Hospital') return [];
-
-        const activeRequest = requests.find(r => r.requesterId === profile.userId && r.status === 'APPROVED');
-        if (!activeRequest) return [];
-
-        const matchingDonors = users.filter(u => 
-            u.userRole === 'Donor' &&
-            u.status === 'VERIFIED' &&
-            u.pinCode === activeRequest.pinCode &&
-            u.bloodType === activeRequest.bloodTypeNeeded &&
-            !u.isRequestActive // Exclude donors who have an active request status (though they shouldn't)
-        );
-        return matchingDonors;
-    }
-
-    function getDonorViewRequests(requests, users) {
-        if (userProfile.userRole !== 'Donor') return [];
-        
-        // Find all approved requests in the donor's pin code
-        const activeRequests = requests.filter(r => 
-            r.status === 'APPROVED' &&
-            r.pinCode === userProfile.pinCode
-        );
-
-        // Enhance with requester name
-        return activeRequests.map(req => {
-            const requester = users.find(u => u.userId === req.requesterId);
-            return {
-                ...req,
-                requesterName: requester ? requester.name : 'Unknown Hospital',
-                requesterPhone: requester ? requester.phone : 'N/A'
-            };
-        });
-    }
-
-    // Renders either donor list (Hospital) or active requests list (Donor)
-    function renderDonors(data) {
-        const listEl = document.getElementById('donors-list');
-        if (!listEl) return;
-        listEl.innerHTML = '';
-        
-        if (userProfile.userRole === 'Hospital') {
-            // HOSPITAL VIEW: List matching donors
-            if (!userProfile.isRequestActive) {
-                listEl.innerHTML = `<p class="text-center text-gray-500 p-4 bg-yellow-50 rounded-lg">You must have an <strong>APPROVED</strong> request to view matching donors in your area.</p>`;
-                return;
-            }
-
-            if (data.length === 0) {
-                listEl.innerHTML = `<p class="text-center text-gray-500">No verified donors matching your needs (${userProfile.bloodTypeNeeded} in Pincode ${userProfile.pinCode}) were found.</p>`;
-                return;
-            }
-
-            data.forEach(donor => {
-                const card = document.createElement('div');
-                card.className = 'bg-white p-4 rounded-lg shadow border border-gray-100 flex justify-between items-center';
-                card.innerHTML = `
-                    <div>
-                        <p class="text-lg font-semibold text-gray-800">${donor.name}</p>
-                        <p class="text-sm text-gray-500">Pincode: ${donor.pinCode} | Phone: ${donor.phone}</p>
-                        <p class="text-sm text-gray-500">Last Donated: ${donor.lastDonationTime ? new Date(donor.lastDonationTime).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                    ${getBloodTypeLabel(donor.bloodType)}
-                `;
-                listEl.appendChild(card);
-            });
-
-        } else if (userProfile.userRole === 'Donor') {
-            // DONOR VIEW: List active blood requests in the donor's pincode
-            if (data.length === 0) {
-                listEl.innerHTML = `<p class="text-center text-gray-500 p-4 bg-green-50 rounded-lg">No active, approved blood requests were found in your area (${userProfile.pinCode}).</p>`;
-                return;
-            }
-            
-             data.forEach(req => {
-                const card = document.createElement('div');
-                card.className = 'bg-white p-4 rounded-lg shadow border border-gray-100';
-                card.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-lg font-semibold text-red-600">${req.requesterName}</p>
-                            <p class="text-sm text-gray-500">Pincode: ${req.pinCode} | Contact: ${req.requesterPhone}</p>
-                        </div>
-                        ${getBloodTypeLabel(req.bloodTypeNeeded)}
-                    </div>
-                    <p class="text-sm mt-2 text-gray-600">Blood Type Needed: <span class="font-bold">${req.bloodTypeNeeded}</span></p>
-                `;
-                listEl.appendChild(card);
-            });
-        }
-    }
-
-
-    // Renders the user's specific requests (Hospital) or status (Donor)
-    function renderMyRequests() {
-        const myListEl = document.getElementById('my-requests-list');
-        if (!myListEl) return;
-        myListEl.innerHTML = '';
-        
-        if (userProfile.userRole === 'Donor') {
-            // DONOR STATUS
-             myListEl.innerHTML = `
-                <div class="bg-blue-50 p-4 rounded-lg shadow-inner space-y-2">
-                    <p class="text-lg font-semibold text-blue-800">Your Current Donor Status</p>
-                    <p><strong>Pincode:</strong> ${userProfile.pinCode}</p>
-                    <p><strong>Blood Type:</strong> ${getBloodTypeLabel(userProfile.bloodType)}</p>
-                    <p><strong>Verification:</strong> <span class="font-bold text-${userProfile.status === 'VERIFIED' ? 'green' : 'orange'}-600">${userProfile.status}</span></p>
-                </div>
-                <div class="bg-yellow-50 p-4 rounded-lg shadow-sm mt-4">
-                    <p class="text-sm text-yellow-800">
-                        When an approved request matches your details, you will see a notification! Your profile is essential for helping others in your area.
-                    </p>
-                </div>
-            `;
-            return;
-        }
-
-
-        // HOSPITAL REQUESTS
-        const myRequest = allRequests.find(r => r.requesterId === userProfile.userId);
-
-        if (!myRequest) {
-            myListEl.innerHTML = `
-                <div class="text-center p-6 bg-gray-50 rounded-lg shadow-inner">
-                    <p class="text-gray-600 mb-4">You currently do not have any active blood requests.</p>
-                    <button onclick="showRequestModal()" class="btn-primary text-white px-4 py-2 rounded-lg shadow-md transition">
-                        Create New Request
-                    </button>
-                </div>
-            `;
-            return;
-        }
-
-        const statusColor = { 'PENDING': 'orange-500', 'APPROVED': 'green-600', 'DENIED': 'red-500' }[myRequest.status] || 'gray-500';
-
-        myListEl.innerHTML = `
-            <div class="bg-white p-5 rounded-lg shadow-xl border border-gray-200">
-                <div class="flex justify-between items-start mb-3">
-                    <h3 class="text-xl font-bold text-gray-800">Current Blood Request</h3>
-                    <span class="text-sm font-semibold text-${statusColor} bg-${statusColor.split('-')[0]}-100 px-3 py-1 rounded-full">
-                        Status: ${myRequest.status}
-                    </span>
-                </div>
-                
-                <p class="text-gray-700 mb-2"><strong>Blood Type Needed:</strong> ${getBloodTypeLabel(myRequest.bloodTypeNeeded)}</p>
-                <p class="text-gray-600 mb-4"><strong>Pincode:</strong> ${myRequest.pinCode}</p>
-                
-                ${myRequest.status === 'APPROVED' ? `
-                    <div class="bg-green-50 p-3 rounded-lg text-green-700 text-sm mb-4">
-                        <p class="font-semibold">Request is LIVE!</p>
-                        <p>Matching donors in your pincode are being notified.</p>
-                    </div>
-                    <button onclick="cancelMyRequest('${myRequest._id}')" class="text-sm text-red-600 hover:text-red-800 transition">
-                        Close/Cancel Request
-                    </button>
-                ` : myRequest.status === 'PENDING' ? `
-                    <div class="bg-yellow-50 p-3 rounded-lg text-yellow-700 text-sm mb-4">
-                        <p class="font-semibold">Pending Admin Approval</p>
-                        <p>Please wait for an administrator to approve this request.</p>
-                    </div>
-                    <button onclick="cancelMyRequest('${myRequest._id}')" class="text-sm text-red-600 hover:text-red-800 transition">
-                        Cancel Request
-                    </button>
-                ` : `
-                    <div class="bg-red-50 p-3 rounded-lg text-red-700 text-sm mb-4">
-                        <p class="font-semibold">Request Denied or Cancelled</p>
-                        <p>You can create a new request if needed.</p>
-                    </div>
-                `}
-            </div>
-        `;
-    }
-
-    function renderAdminPendingUsers() {
-        const listEl = document.getElementById('pending-users-list');
-        if (!listEl) return;
-        listEl.innerHTML = '';
-        
-        const pendingUsers = allUsers.filter(u => u.status === 'PENDING_VERIFICATION');
-        
-        if (pendingUsers.length === 0) {
-            listEl.innerHTML = `<p class="text-center text-gray-500">No users are currently pending verification.</p>`;
-            return;
-        }
-
-        pendingUsers.forEach(user => {
-            const card = document.createElement('div');
-            card.className = 'bg-white p-4 rounded-lg shadow border border-gray-100 flex justify-between items-center';
-            card.innerHTML = `
-                <div>
-                    <p class="text-lg font-semibold text-gray-800">${user.name} (${user.userRole})</p>
-                    <p class="text-sm text-gray-500">Phone: ${user.phone} | Pincode: ${user.pinCode}</p>
-                    ${user.userRole === 'Donor' ? `<p class="text-sm text-gray-500">Blood: ${getBloodTypeLabel(user.bloodType)} | Age: ${user.age} | Weight: ${user.weight}kg</p>` : ''}
-                </div>
-                <button data-userid="${user.userId}" class="approve-user-btn bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition">
-                    Approve
-                </button>
-            `;
-            listEl.appendChild(card);
-            
-            card.querySelector('.approve-user-btn').addEventListener('click', (e) => {
-                const userId = e.target.dataset.userid;
-                 showCustomConfirm('Confirm Approval', `Are you sure you want to approve user ${user.name}?`, (confirmed) => {
-                    if (confirmed) {
-                        API.put(`${API_BASE}/admin/approve-user/${userId}?adminSecret=${ADMIN_SECRET}`);
-                        // Data sync will handle re-render
-                    }
-                });
-            });
-        });
-    }
-    
-    function renderAdminRequests() {
-        const listEl = document.getElementById('admin-requests-list');
-        if (!listEl) return;
-        listEl.innerHTML = '';
-
-        if (allRequests.length === 0) {
-            listEl.innerHTML = `<p class="text-center text-gray-500">No requests in the system.</p>`;
-            return;
-        }
-
-        const sortedRequests = [...allRequests].sort((a, b) => {
-            if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
-            if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
-            return 0;
-        });
-
-        sortedRequests.forEach(req => {
-            const requester = allUsers.find(u => u.userId === req.requesterId);
-            const requesterName = requester ? requester.name : 'Unknown Hospital';
-            const requesterPhone = requester ? requester.phone : 'N/A';
-            
-            const statusColor = { 'PENDING': 'orange', 'APPROVED': 'green', 'DENIED': 'red' }[req.status] || 'gray';
-            const isPending = req.status === 'PENDING';
-            
-            const card = document.createElement('div');
-            card.className = 'bg-white p-4 rounded-lg shadow border border-gray-100';
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-lg font-semibold text-gray-800">${requesterName}</p>
-                        <p class="text-sm text-gray-500">Pincode: ${req.pinCode} | Phone: ${requesterPhone}</p>
-                        <p class="text-sm text-gray-500 mt-1">
-                            Status: <span class="font-bold text-${statusColor}-600">${req.status}</span>
-                            | Requested: ${new Date(req.createdAt).toLocaleDateString()}
-                        </p>
-                    </div>
-                    ${getBloodTypeLabel(req.bloodTypeNeeded)}
-                </div>
-                
-                ${isPending ? `
-                    <div class="mt-4 pt-3 border-t flex gap-3">
-                        <button data-requestid="${req._id}" data-action="approve" class="admin-request-btn bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition">Approve</button>
-                        <button data-requestid="${req._id}" data-action="deny" class="admin-request-btn bg-red-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-600 transition">Deny</button>
-                    </div>
-                ` : `
-                    <div class="mt-4 pt-3 border-t text-sm text-gray-500 italic">
-                        Action already taken.
-                    </div>
-                `}
-            `;
-            listEl.appendChild(card);
-            
-            if (isPending) {
-                card.querySelectorAll('.admin-request-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const requestId = e.target.dataset.requestid;
-                        const action = e.target.dataset.action;
-                        const actionText = action === 'approve' ? 'Approve' : 'Deny';
-                        
-                        showCustomConfirm(`${actionText} Request`, `Are you sure you want to ${actionText.toLowerCase()} the request from ${requesterName}?`, (confirmed) => {
-                             if (confirmed) {
-                                API.put(`${API_BASE}/admin/approve-request/${requestId}?adminSecret=${ADMIN_SECRET}`, { action: action });
-                                // Data sync will handle re-render
-                            }
-                        });
-                    });
-                });
-            }
-        });
-    }
-
-    // --- FORM SUBMISSIONS ---
-
-    async function handleRegistration(e) {
-        e.preventDefault();
-        const form = e.target;
-        const data = {
-            userRole: form.userRole.value,
-            name: form.name.value,
-            phone: form.phone.value,
-            pinCode: form.pinCode.value,
-            address: form.address.value,
-            status: 'PENDING_VERIFICATION', // All new users start here
-        };
-
-        if (data.userRole === 'Donor') {
-            data.bloodType = form.bloodType.value;
-            data.age = parseInt(form.age.value);
-            data.weight = parseInt(form.weight.value);
-            data.gender = form.gender.value;
-            data.lastDonationTime = form.lastDonationDate.value ? new Date(form.lastDonationDate.value).getTime() : 0;
-            data.bloodReportLink = form.bloodReportLink.value;
-        }
-
-        const result = await API.post(`${API_BASE}/auth/register`, data);
-
-        if (result.error) {
-            showNotification(result.error);
-        } else {
-            saveProfile(result.user);
-            showNotification(`Registration successful! Please wait for admin verification.`, 'blue');
-            showUserBlocked();
-        }
-    }
-
-    async function handleLogin(e) {
-        e.preventDefault();
-        const phone = document.getElementById('loginPhone').value;
-        const result = await API.post(`${API_BASE}/auth/login`, { phone });
-
-        if (result.error) {
-            showNotification(result.error);
-        } else {
-            saveProfile(result.user);
-            initializeApp();
-        }
-    }
-    
-    // --- HOSPITAL ACTIONS ---
-
-    function showRequestModal() {
-        const modal = document.getElementById('modal-container');
-        document.getElementById('modal-title').textContent = 'Create Blood Request';
-        document.getElementById('modal-body').innerHTML = `
-            <form id="request-form" class="space-y-4">
-                <div>
-                    <label for="requestBloodType" class="block text-sm font-medium text-gray-700">Blood Type Needed *</label>
-                    <select id="requestBloodType" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" required>
-                        <option value="">Select</option>
-                        <option value="A+">A+</option><option value="A-">A-</option>
-                        <option value="B+">B+</option><option value="B-">B-</option>
-                        <option value="O+">O+</option><option value="O-">O-</option>
-                        <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="requestPinCode" class="block text-sm font-medium text-gray-700">Pincode *</label>
-                    <input type="text" id="requestPinCode" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border" pattern="[0-9]{6}" title="Must be a 6-digit number" value="${userProfile.pinCode}" required readonly>
-                </div>
-            </form>
-        `;
-
-        const requestForm = document.getElementById('request-form');
-        const confirmBtn = document.getElementById('modal-confirm-btn');
-        const cancelBtn = document.getElementById('modal-cancel-btn');
-        
-        // Hide default buttons
-        confirmBtn.style.display = 'none';
-        cancelBtn.textContent = 'Close';
-
-        // Add form submission listener
-        requestForm.addEventListener('submit', handleRequestSubmit);
-        
-        // Use a generic close handler
-        cancelBtn.onclick = () => {
-            modal.style.display = 'none';
-            requestForm.removeEventListener('submit', handleRequestSubmit);
-        };
-        
-        // Replace confirm button with submit for the form
-        const submitBtn = document.createElement('button');
-        submitBtn.type = 'submit';
-        submitBtn.textContent = 'Submit Request';
-        submitBtn.className = 'px-4 py-2 btn-primary text-white rounded-lg';
-        
-        confirmBtn.parentNode.insertBefore(submitBtn, confirmBtn);
-        submitBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            requestForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-        });
-        
-        // Re-setup UI refs to get the new elements
-        setupUIReferences();
-        
-        modal.style.display = 'flex';
-    }
-    
-    async function handleRequestSubmit(e) {
-        e.preventDefault();
-        const modal = document.getElementById('modal-container');
-        const form = document.getElementById('request-form');
-
-        const requestData = {
-            requesterId: userProfile.userId,
-            name: userProfile.name,
-            phone: userProfile.phone,
-            userRole: userProfile.userRole,
-            pinCode: form.requestPinCode.value,
-            bloodTypeNeeded: form.requestBloodType.value,
-        };
-
-        const result = await API.post(`${API_BASE}/request`, requestData);
-
-        if (result.error) {
-            showNotification(result.error);
-        } else {
-            showNotification(`Request submitted for ${requestData.bloodTypeNeeded} in ${requestData.pinCode}. Waiting for admin approval.`, 'blue');
-             // Update local profile to reflect active request
-             const updatedProfile = {
-                ...userProfile,
-                isRequestActive: true,
-                bloodTypeNeeded: requestData.bloodTypeNeeded,
-                requestPinCode: requestData.pinCode,
-            };
-            saveProfile(updatedProfile);
-            fetchAndSyncUsers(); // Re-sync to get the new request object
-        }
-        
-        // Clean up modal
-        modal.style.display = 'none';
-        form.removeEventListener('submit', handleRequestSubmit);
-        document.getElementById('modal-confirm-btn').remove(); // remove the temporary submit button
-    }
-    
-    function cancelMyRequest(requestId) {
-        showCustomConfirm('Cancel Request', 'Are you sure you want to cancel your active blood request? This action cannot be undone.', async (confirmed) => {
-            if (confirmed) {
-                const result = await API.put(`${API_BASE}/admin/approve-request/${requestId}?adminSecret=${ADMIN_SECRET}`, { action: 'deny' });
-
-                if (result.error) {
-                    showNotification(result.error);
-                    return;
-                }
-
-                showNotification(`Your request has been officially closed.`, 'blue');
-                fetchAndSyncUsers();
-            }
-        });
-    }
-
-    // --- SOCKET.IO ---
-    function initializeSocket() {
-        // Assume socket.io is running on the same host/port as the API base for simplicity
-        socket = io(window.location.protocol + '//' + window.location.host, { path: '/socket.io' }); 
-
-        socket.on('connect', () => {
-            console.log('Socket Connected:', socket.id);
-        });
-        
-        socket.on('disconnect', () => {
-            console.log('Socket Disconnected');
-        });
-
-        socket.on('userVerified', (data) => {
-            if (userProfile && userProfile.userId === data.userId) {
-                showNotification(`🎉 Your account has been VERIFIED!`, 'green');
-                // Force a sync to update the local profile status
-                fetchAndSyncUsers();
-            }
-            if (userProfile && userProfile.userRole === 'Admin') {
-                fetchAndSyncUsers();
-            }
-        });
-
-        socket.on('newRequest', (data) => {
-            if (userProfile && userProfile.userRole === 'Donor' && userProfile.pinCode === data.pinCode) {
-                 showNotification(`🚨 New Blood Request in your area (${data.pinCode})! Blood Type: ${data.bloodTypeNeeded}`, 'red');
-            }
-            if (userProfile && userProfile.userRole === 'Admin') {
-                fetchAndSyncUsers();
-            }
-        });
-        
-        socket.on('requestApproved', (data) => {
-            if (userProfile) {
-                // If I am the requesting hospital
-                if (allRequests.some(r => r._id === data.requestId && r.requesterId === userProfile.userId)) {
-                    showNotification(`✅ Your request for ${data.bloodType} has been APPROVED!`, 'green');
-                }
-                
-                // If I am a donor who matches the request
-                if (userProfile.userRole === 'Donor' && data.donorIds.includes(userProfile.userId)) {
-                    showNotification(`🩸 MATCH FOUND! A verified request for ${data.bloodType} is active in your area. Check Active Requests tab.`, 'red');
-                }
-                
-                // Admin needs to re-render
-                 if (userProfile.userRole === 'Admin') {
-                    fetchAndSyncUsers();
-                }
-            }
-        });
-        
-        socket.on('requestDenied', (data) => {
-             if (userProfile && allRequests.some(r => r._id === data.requestId && r.requesterId === userProfile.userId)) {
-                showNotification(`❌ Your request has been DENIED or cancelled.`, 'red');
-                // The hospital needs to re-sync to clear their active request status
-            }
-            if (userProfile && userProfile.userRole === 'Admin') {
-                fetchAndSyncUsers();
-            }
-        });
-
-    }
-
-
-    // --- START APPLICATION ---
-    function initializeApp() {
-        initializeSocket();
-        loadProfile();
-       
-        if (userProfile && userProfile.userRole === 'Admin') {
-            showAdminDashboard();
-        } else if (userProfile && userProfile.status === 'VERIFIED') {
-            showDashboard();
-        } else if (userProfile && userProfile.status !== 'VERIFIED') {
-             showUserBlocked();
-        }
-          else {
-            showRoleSelection();
-        }
-         
-        // Set up global UI refs (some will be null until views are rendered)
-        setupUIReferences();
-        
-        // Set max date for last donation date
-        if (ui.lastDonationDateInput) {
-            ui.lastDonationDateInput.max = new Date().toISOString().split('T')[0];
-        }
-    }
-
-    window.onload = initializeApp;
+/* ======= CONFIG ======= */
+const BACKEND_URL = "https://blood-connect-api-67g9.onrender.com"; // update if needed
+const API_BASE = BACKEND_URL + "/api";
+const ADMIN_SECRET = "hellowrld"; // from your .env (frontend uses it when admin performs actions) - backend validates its process.env.ADMIN_SECRET
+
+/* ======= API helpers ======= */
+const API = {
+  async post(path, body) {
+    try {
+      const res = await fetch(API_BASE + path, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const json = await res.json().catch(()=>null);
+      return { ok: res.ok, status: res.status, json };
+    } catch (e) { console.warn('POST error', e); return { ok:false }; }
+  },
+  async get(path) {
+    try {
+      const res = await fetch(API_BASE + path);
+      const json = await res.json().catch(()=>null);
+      return { ok: res.ok, status: res.status, json };
+    } catch (e) { console.warn('GET error', e); return { ok:false }; }
+  },
+  async put(path, body) {
+    try {
+      const res = await fetch(API_BASE + path, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const json = await res.json().catch(()=>null);
+      return { ok: res.ok, status: res.status, json };
+    } catch (e) { console.warn('PUT error', e); return { ok:false }; }
+  }
+};
+
+/* ======= Socket ======= */
+let socket = null;
+function initSocket() {
+  if (!window.io) { console.warn('socket.io client missing'); return; }
+  socket = io(BACKEND_URL, { transports:['websocket','polling'] });
+  socket.on('connect', ()=>console.log('socket connected', socket.id));
+  socket.on('newRequest', (d)=> { showNotification('New request created'); fetchAndSync(); });
+  socket.on('userRegistered', (d)=> { showNotification('New user registered'); fetchAndSync(); });
+  socket.on('userVerified', (d)=> { showNotification('User verification updated'); fetchAndSync(); });
+  socket.on('requestApproved', (d)=> { showNotification('A request was approved'); fetchAndSync(); });
+  socket.on('requestDenied', (d)=> { showNotification('A request was denied'); fetchAndSync(); });
+}
+
+/* ======= UI helpers ======= */
+function showNotification(msg) {
+  const box = document.getElementById('global-message-content');
+  box.textContent = msg;
+  box.parentElement.classList.remove('opacity-0');
+  setTimeout(()=> { box.textContent = ''; }, 3500);
+}
+function qs(id){ return document.getElementById(id); }
+function createElem(tag, className){ const e = document.createElement(tag); if(className) e.className = className; return e; }
+
+/* ======= App state ======= */
+const USER_KEY = 'blood_connect_user_profile';
+let userProfile = null;
+
+/* ======= UI refs & initial wiring ======= */
+const roleButtons = Array.from(document.querySelectorAll('.select-role-btn'));
+const authSelection = qs('auth-selection');
+const roleSelection = qs('role-selection');
+const loginBox = qs('user-login');
+const registerBox = qs('profile-setup');
+const adminLoginBox = qs('admin-login');
+const mainDashboard = qs('main-dashboard');
+const adminDashboard = qs('admin-dashboard');
+const donorView = qs('view-donor');
+const requestView = qs('view-request');
+const tabRequestBtn = qs('tab-request');
+const tabDonorBtn = qs('tab-donor');
+const requestForm = qs('request-form');
+
+/* Role selection */
+let currentSelectedRole = null;
+roleButtons.forEach(btn => btn.addEventListener('click', () => {
+  const role = btn.getAttribute('data-role') || (btn.id === 'select-admin-role-btn' ? 'Admin' : null);
+  currentSelectedRole = role;
+  qs('auth-role-display').textContent = role;
+  roleSelection.classList.add('hidden');
+  authSelection.classList.remove('hidden');
+}));
+
+qs('auth-back-to-role').addEventListener('click', ()=> {
+  authSelection.classList.add('hidden');
+  roleSelection.classList.remove('hidden');
+});
+
+/* Login / Register flows (using backend) */
+qs('auth-login-btn').addEventListener('click', ()=> {
+  authSelection.classList.add('hidden');
+  loginBox.classList.remove('hidden');
+  qs('login-role-display').textContent = currentSelectedRole || 'User';
+});
+qs('auth-register-btn').addEventListener('click', ()=> {
+  authSelection.classList.add('hidden');
+  registerBox.classList.remove('hidden');
+  qs('registration-role').textContent = currentSelectedRole || 'New User';
+  qs('userRoleHidden').value = currentSelectedRole || 'Donor';
+});
+qs('login-back-to-auth').addEventListener('click', ()=> { loginBox.classList.add('hidden'); authSelection.classList.remove('hidden'); });
+qs('signup-back-to-role').addEventListener('click', ()=> { registerBox.classList.add('hidden'); roleSelection.classList.remove('hidden'); });
+qs('admin-back-to-role').addEventListener('click', ()=> { adminLoginBox.classList.add('hidden'); roleSelection.classList.remove('hidden'); });
+
+/* Login form submit (calls backend /api/auth/login) */
+qs('user-login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const phone = qs('login-phone').value.trim();
+  const role = currentSelectedRole || 'Donor';
+  // call backend login
+  const res = await API.post('/auth/login', { phone });
+  if (!res.ok) {
+    showNotification('Login failed: ' + (res.json?.error || res.status));
+    return;
+  }
+  const user = res.json.user;
+  // If server returns user, persist
+  userProfile = user;
+  localStorage.setItem(USER_KEY, JSON.stringify(userProfile));
+  enterDashboard();
+});
+
+/* Register form submit (calls backend /api/auth/register) */
+qs('profile-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    userId: crypto.randomUUID(),
+    name: qs('name').value.trim(),
+    phone: qs('phone').value.trim(),
+    userRole: qs('userRoleHidden').value || 'Donor',
+    pinCode: (qs('pinCode').value || '').toString(),
+    bloodType: qs('bloodType').value || null
+  };
+  const res = await API.post('/auth/register', payload);
+  if (!res.ok) {
+    showNotification('Register failed: ' + (res.json?.error || res.status));
+    return;
+  }
+  const user = res.json.user;
+  userProfile = user;
+  localStorage.setItem(USER_KEY, JSON.stringify(userProfile));
+  // If user requires verification (default PENDING_VERIFICATION) show blocked
+  if (user.status === 'PENDING_VERIFICATION') {
+    registerBox.classList.add('hidden');
+    qs('user-blocked').classList.remove('hidden');
+    return;
+  }
+  enterDashboard();
+});
+
+/* Admin login (quick demo uses adminSecret locally to open admin UI) */
+qs('admin-login-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const pin = qs('admin-pin').value.trim();
+  // This is just for showing the admin UI (the server validates admin API calls server-side)
+  if (pin === ADMIN_SECRET) {
+    roleSelection.classList.add('hidden');
+    adminLoginBox.classList.add('hidden');
+    adminDashboard.classList.remove('hidden');
+    fetchAndRenderAdmin();
+  } else {
+    showNotification('Invalid admin secret');
+  }
+});
+
+/* Enter dashboard after login/registration */
+function enterDashboard() {
+  initSocket();
+  authSelection.classList.add('hidden');
+  loginBox.classList.add('hidden');
+  registerBox.classList.add('hidden');
+  qs('user-blocked').classList.add('hidden');
+  adminDashboard.classList.add('hidden');
+  mainDashboard.classList.remove('hidden');
+  qs('dashboard-role-display').textContent = userProfile.userRole;
+  qs('user-pin-display').textContent = userProfile.pinCode || '';
+  qs('user-blood-display').textContent = userProfile.bloodType || '';
+  qs('donor-status').textContent = userProfile.status || '';
+
+  // Apply hospital-only visibility rules:
+  if (userProfile.userRole === 'Donor') {
+    document.querySelectorAll('.hospital-only').forEach(el => el.classList.add('hidden-for-donor'));
+    tabDonorBtn.classList.add('border-b-2','border-red-600');
+    tabRequestBtn.classList.add('hidden-for-donor');
+    donorView.classList.remove('hidden');
+    requestView.classList.add('hidden');
+  } else if (userProfile.userRole === 'Hospital') {
+    document.querySelectorAll('.hospital-only').forEach(el => el.classList.remove('hidden-for-donor'));
+    tabRequestBtn.classList.remove('hidden-for-donor');
+    requestView.classList.remove('hidden');
+    donorView.classList.remove('hidden');
+  } else if (userProfile.userRole === 'Admin') {
+    mainDashboard.classList.add('hidden');
+    adminDashboard.classList.remove('hidden');
+  }
+
+  fetchAndSync();
+}
+
+/* Logout */
+qs('logout-btn').addEventListener('click', ()=> {
+  userProfile = null;
+  localStorage.removeItem(USER_KEY);
+  mainDashboard.classList.add('hidden');
+  roleSelection.classList.remove('hidden');
+  document.querySelectorAll('.hospital-only').forEach(el => el.classList.add('hidden-for-donor'));
+});
+
+/* Blocked logout */
+qs('blocked-logout-btn').addEventListener('click', ()=> {
+  qs('user-blocked').classList.add('hidden');
+  roleSelection.classList.remove('hidden');
+});
+
+/* Tab switching */
+tabRequestBtn.addEventListener('click', ()=> {
+  if (tabRequestBtn.classList.contains('hidden-for-donor')) return;
+  requestView.classList.remove('hidden');
+  donorView.classList.add('hidden');
+  tabRequestBtn.classList.add('border-b-2','border-red-600');
+  tabDonorBtn.classList.remove('border-b-2','border-red-600');
+});
+tabDonorBtn.addEventListener('click', ()=> {
+  donorView.classList.remove('hidden');
+  requestView.classList.add('hidden');
+  tabDonorBtn.classList.add('border-b-2','border-red-600');
+  tabRequestBtn.classList.remove('border-b-2','border-red-600');
+});
+
+/* ----- Submit request (HOSPITAL only) ----- */
+qs('request-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!userProfile || userProfile.userRole !== 'Hospital') {
+    showNotification('Only hospitals can submit requests.');
+    return;
+  }
+  const payload = {
+    requesterId: userProfile.userId,
+    name: userProfile.name,
+    phone: userProfile.phone,
+    userRole: 'Hospital', // backend requires Hospital
+    pinCode: (qs('request-pinCode').value || '').toString(),
+    bloodTypeNeeded: qs('bloodTypeNeeded').value,
+    createdAt: new Date().toISOString()
+  };
+  // POST to /api/request (note: api.js uses router.post('/request', ...))
+  const res = await API.post('/request', payload);
+  if (!res.ok) {
+    showNotification('Request failed: ' + (res.json?.error || res.status));
+    return;
+  }
+  showNotification('Request submitted successfully.');
+  // emit socket event to server if available (server will broadcast to others anyway)
+  if (socket) socket.emit('newRequest', res.json.request);
+  qs('request-form').reset();
+  fetchAndSync();
+});
+
+/* ======= Data fetching & rendering ======= */
+async function fetchAndSync() {
+  // call /api/sync-storage to get { users, requests }
+  const res = await API.get('/sync-storage');
+  if (!res.ok) {
+    showNotification('Sync failed: ' + res.status);
+    // fallback: try to fetch requests only
+    await fetchRequestsOnly();
+    return;
+  }
+  const users = res.json.users || [];
+  const requests = res.json.requests || [];
+  // render requests list for donors & admin
+  renderRequests(requests);
+  // if last used matched pin show donors (no geo coords in backend)
+  // refresh admin lists if admin
+  renderAdminLists(users, requests);
+}
+
+async function fetchRequestsOnly() {
+  // fallback: try to fetch donors or requests through other endpoints if available
+  const resAll = await API.get('/sync-storage');
+  if (resAll.ok) {
+    renderRequests(resAll.json.requests || []);
+    renderAdminLists(resAll.json.users || [], resAll.json.requests || []);
+  } else {
+    showNotification('Unable to load requests.');
+  }
+}
+
+function renderRequests(requests) {
+  const list = qs('requests-list');
+  list.innerHTML = '';
+  if (!requests || requests.length === 0) {
+    const p = createElem('div','p-3 bg-green-50 rounded text-gray-600'); p.textContent = 'No active matching requests at the moment.';
+    list.appendChild(p);
+    return;
+  }
+  // For donors: filter requests by their pin (if available)
+  let filtered = requests;
+  if (userProfile && userProfile.userRole === 'Donor' && userProfile.pinCode) {
+    filtered = requests.filter(r => r.pinCode === userProfile.pinCode && (r.status === 'PENDING' || !r.status));
+  }
+  if (filtered.length === 0) {
+    const p = createElem('div','p-3 bg-green-50 rounded text-gray-600'); p.textContent = 'No active requests in your area.';
+    list.appendChild(p);
+    return;
+  }
+  filtered.forEach(r => {
+    const card = createElem('div','p-3 bg-white rounded shadow border');
+    card.innerHTML = `<div class="flex justify-between items-start">
+      <div>
+        <div class="text-sm text-gray-500">Requested by: <strong>${escapeHTML(r.name || r.requesterName || 'Hospital')}</strong></div>
+        <div class="text-lg font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
+        <div class="text-xs text-gray-500">Status: ${(r.status || 'PENDING')}</div>
+      </div>
+    </div>`;
+    list.appendChild(card);
+  });
+}
+
+/* Render donors list (for hospital after submitting a pin & bloodTypeNeeded) */
+async function renderDonorsFor(pin, bloodType) {
+  const donorsList = qs('donors-list');
+  donorsList.innerHTML = '';
+  if (!pin || !bloodType) {
+    donorsList.appendChild(createElem('div','p-3 text-gray-600 bg-yellow-50 rounded') ).textContent = 'Provide pin and blood type to find donors.';
+    return;
+  }
+  // GET /api/donors?pin=560078&bloodType=A+
+  const res = await API.get(`/donors?pin=${encodeURIComponent(pin)}&bloodType=${encodeURIComponent(bloodType)}`);
+  if (!res.ok) {
+    donorsList.appendChild(createElem('div','p-3 text-gray-600 bg-red-50 rounded')).textContent = 'Failed to fetch donors.';
+    return;
+  }
+  const donors = res.json.donors || [];
+  if (donors.length === 0) {
+    donorsList.appendChild(createElem('div','p-3 text-gray-600 bg-yellow-50 rounded')).textContent = 'No verified donors found for this pin & blood type.';
+    return;
+  }
+
+  // Render each donor
+  donors.forEach(d => {
+    const card = createElem('div','p-3 bg-white rounded shadow border flex justify-between');
+    card.innerHTML = `<div>
+      <div class="font-semibold">${escapeHTML(d.name || 'Donor')}</div>
+      <div class="text-xs text-gray-500">${escapeHTML(d.bloodType || '')} • Pin ${escapeHTML(d.pinCode || '')}</div>
+      <div class="text-xs text-gray-500 mt-1">Phone: ${escapeHTML(d.phone || '—')}</div>
+    </div>`;
+    donorsList.appendChild(card);
+  });
+
+  // Show matched pin
+  qs('matched-pin-display').textContent = pin;
+  // If you want to show them on the map, you'd need to extend backend with coords. For now we show no markers.
+}
+
+/* Admin rendering helpers */
+function renderAdminLists(users, requests) {
+  // Pending users
+  const pendingUsersList = qs('pending-users-list');
+  pendingUsersList.innerHTML = '';
+  (users || []).filter(u => u.status === 'PENDING_VERIFICATION').forEach(u => {
+    const card = createElem('div','p-3 bg-white rounded border flex justify-between items-center');
+    card.innerHTML = `<div>
+      <div class="font-semibold">${escapeHTML(u.name)}</div>
+      <div class="text-xs text-gray-500">Phone: ${escapeHTML(u.phone || '')} • Role: ${escapeHTML(u.userRole)}</div>
+    </div>`;
+    const btns = createElem('div','flex space-x-2');
+    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm'); approveBtn.textContent='Approve';
+    approveBtn.addEventListener('click', ()=> adminApproveUser(u.userId));
+    btns.appendChild(approveBtn);
+    card.appendChild(btns);
+    pendingUsersList.appendChild(card);
+  });
+
+  // All users
+  const allUsersList = qs('all-users-list'); allUsersList.innerHTML = '';
+  (users || []).forEach(u => {
+    const card = createElem('div','p-3 bg-white rounded border');
+    card.innerHTML = `<div class="font-semibold">${escapeHTML(u.name)} <span class="text-xs text-gray-500">(${escapeHTML(u.userRole)})</span></div>
+      <div class="text-xs text-gray-500">Phone: ${escapeHTML(u.phone || '')} • Pin: ${escapeHTML(u.pinCode || '')} • Status: ${escapeHTML(u.status || '')}</div>`;
+    allUsersList.appendChild(card);
+  });
+
+  // Pending requests
+  const pendingReqsList = qs('pending-requests-list'); pendingReqsList.innerHTML = '';
+  (requests || []).filter(r => (r.status === 'PENDING' || !r.status)).forEach(r => {
+    const card = createElem('div','p-3 bg-white rounded border flex justify-between items-center');
+    card.innerHTML = `<div>
+      <div class="font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
+      <div class="text-xs text-gray-500">By: ${escapeHTML(r.name || r.requesterName || 'Hospital')}</div>
+    </div>`;
+    const btns = createElem('div','flex space-x-2');
+    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm'); approveBtn.textContent='Approve';
+    approveBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'approve'));
+    const denyBtn = createElem('button','px-3 py-1 rounded bg-red-600 text-white text-sm'); denyBtn.textContent='Deny';
+    denyBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'deny'));
+    btns.appendChild(approveBtn); btns.appendChild(denyBtn);
+    card.appendChild(btns);
+    pendingReqsList.appendChild(card);
+  });
+}
+
+/* Admin actions (call backend admin routes with adminSecret query param) */
+async function adminApproveUser(userId) {
+  const res = await API.put(`/admin/approve-user/${encodeURIComponent(userId)}?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`, {});
+  if (!res.ok) { showNotification('Approve user failed'); return; }
+  showNotification('User approved');
+  fetchAndSync();
+}
+async function adminApproveRequest(requestId, action) {
+  const res = await API.put(`/admin/approve-request/${encodeURIComponent(requestId)}?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`, { action });
+  if (!res.ok) { showNotification('Action failed'); return; }
+  showNotification('Action completed');
+  fetchAndSync();
+}
+async function fetchAndRenderAdmin() {
+  // fetch pending via admin protected endpoint (server expects adminSecret)
+  const usersRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+  if (usersRes.ok) {
+    const users = usersRes.json.users || [];
+    renderAdminLists(users, []);
+  } else {
+    showNotification('Could not load admin lists');
+  }
+}
+
+/* Utility: escape text for DOM insertion */
+function escapeHTML(s) {
+  if (!s && s !== 0) return '';
+  return String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ======= Initial load: check saved user profile ======= */
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(USER_KEY);
+  if (saved) {
+    try { userProfile = JSON.parse(saved); } catch(e){ userProfile=null; }
+  }
+  if (userProfile) enterDashboard();
+  else {
+    // show role selection
+    qs('loading-state')?.classList?.add('hidden');
+    roleSelection.classList.remove('hidden');
+  }
+  // init a simple map container (no markers without coords)
+  try {
+    const map = L.map('donorMap', { attributionControl: false }).setView([12.97,77.59], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+  } catch (e) { console.warn('Leaflet init error', e); }
+  initSocket();
+});
+
+/* Fetch donors when hospital changes pin/bloodType or after request */
+qs('submit-request-btn')?.addEventListener('click', ()=> {
+  const pin = qs('request-pinCode').value.trim();
+  const bloodType = qs('bloodTypeNeeded').value;
+  if (pin && bloodType) renderDonorsFor(pin, bloodType);
+});
+
+/* Sync fetch helper */
+async function fetchAndSync() {
+  await fetchAndSyncInternal();
+}
+async function fetchAndSyncInternal() {
+  const res = await API.get('/sync-storage');
+  if (!res.ok) {
+    showNotification('Could not fetch data from server.');
+    return;
+  }
+  const users = res.json.users || [];
+  const requests = res.json.requests || [];
+  renderRequests(requests);
+  renderAdminLists(users, requests);
+  // If hospital and latest submitted pin/blood present, fetch donors for that pin
+  const pin = qs('request-pinCode').value.trim();
+  const btype = qs('bloodTypeNeeded').value;
+  if (pin && btype && userProfile && userProfile.userRole === 'Hospital') {
+    await renderDonorsFor(pin, btype);
+  }
+}
+
+/* Expose since some handlers call it */
+window.fetchAndSync = fetchAndSync;
+window.renderDonorsFor = renderDonorsFor;
 </script>
 </body>
 </html>
