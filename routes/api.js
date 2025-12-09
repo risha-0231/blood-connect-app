@@ -33,104 +33,138 @@ module.exports = function(io) {
 
   //GK: GET donors by pin
   router.get('/donors', async (req, res) => {
-    const { pin, bloodType } = req.query;
-    if (!pin) return res.status(400).json({ error: 'pin required' });
-    const q = { pinCode: pin };
-    if (bloodType) q.bloodType = bloodType;
-    const donors = await User.find(q).select('-_id userId name phone pinCode bloodTypejq status');
-    res.json({ donors });
-  });
-
-  // create request
-  router.post('/request', async (req, res) => {
     try {
-      // FIX: Block Donor from creating requests
-      if (req.body.userRole === 'Donor') {
-          return res.status(403).json({ error: 'Donors cannot create blood requests.' });
+      const { pin, bloodType } = req.query;
+      let query = {
+        userRole: 'Donor',
+        status: 'VERIFIED',
+        pinCode: pin
+      };
+
+      if (bloodType) {
+        query.bloodType = bloodType;
       }
 
-      const r = await Request.create(req.body);
-      io.emit('newRequest', r);
-      res.json({ request: r });
+      const donors = await User.find(query);
+      return res.json({ donors });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'create request failed' });
+      console.error('get-donors error', err);
+      return res.status(500).json({ error: 'get donors failed' });
     }
   });
 
-  // list requests
-  router.get('/requests', async (req, res) => {
-    const { pin } = req.query;
-    const q = pin ? { pinCode: pin } : {};
-    const requests = await Request.find(q).sort({ createdAt: -1 });
-    res.json({ requests });
+  //GK: POST request for blood
+  router.post('/request', async (req, res) => {
+    try {
+      const data = req.body;
+
+      // --- CRITICAL CHANGE: ONLY ALLOW 'Hospital' ROLE TO CREATE REQUESTS ---
+      if (data.userRole !== 'Hospital') {
+        return res.status(403).json({ error: 'Only Hospital accounts are allowed to create blood requests.' });
+      }
+
+      // Check if a request already exists
+      const existingReq = await Request.findOne({ requesterId: data.requesterId, status: 'PENDING' });
+      if (existingReq) {
+        return res.status(400).json({ error: 'You already have a pending request.' });
+      }
+
+      const newRequest = await Request.create(data);
+
+      // Update the user's active request status
+      await User.updateOne(
+        { userId: data.requesterId },
+        {
+          isRequestActive: true,
+          bloodTypeNeeded: data.bloodTypeNeeded,
+          requestPinCode: data.pinCode,
+          updatedAt: new Date(),
+        }
+      );
+      
+      if (io) io.emit('newRequest', newRequest);
+      return res.json({ request: newRequest });
+    } catch (err) {
+      console.error('post-request error', err);
+      return res.status(500).json({ error: 'post request failed' });
+    }
   });
 
-  // ADMIN: list pending users (protected with adminSecret query or header)
+  // GK: ADMIN ROUTES
+  // Admin middleware to protect routes
+  const adminMiddleware = (req, res, next) => {
+    const secret = req.query.adminSecret || req.headers['x-admin-secret'];
+    if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+    next();
+  };
+
+  router.use('/admin', adminMiddleware);
+
+  // Get users pending approval
   router.get('/admin/pending-users', async (req, res) => {
-    const secret = req.query.adminSecret || req.headers['x-admin-secret'];
-    if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
-    const pending = await User.find({ status: 'PENDING_VERIFICATION' });
-    res.json({ pending });
+    try {
+      const pendingUsers = await User.find({ status: 'PENDING_VERIFICATION' });
+      return res.json({ users: pendingUsers });
+    } catch (err) {
+      console.error('pending-users error', err);
+      return res.status(500).json({ error: 'pending users failed' });
+    }
   });
 
-  // ADMIN: approve or deny user
+  // Approve a pending user
   router.put('/admin/approve-user/:userId', async (req, res) => {
-    const secret = req.query.adminSecret || req.headers['x-admin-secret'];
-    if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
     try {
       const { userId } = req.params;
-      const { action } = req.body; // 'approve' or 'deny'
-      const user = await User.findOne({ userId });
+      const user = await User.findOneAndUpdate(
+        { userId },
+        { status: 'VERIFIED', updatedAt: new Date() },
+        { new: true }
+      );
       if (!user) return res.status(404).json({ error: 'User not found' });
-      user.status = action === 'approve' ? 'VERIFIED' : 'DENIED';
-      user.updatedAt = new Date();
-      await user.save();
-      io.emit('userVerified', { userId: user.userId, status: user.status });
-      res.json({ user });
+      
+      if (io) io.emit('userVerified', { userId: user.userId, status: 'VERIFIED' });
+      return res.json({ user });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'approve user failed' });
+      console.error('approve-user error', err);
+      return res.status(500).json({ error: 'approve user failed' });
     }
   });
 
-  // ADMIN: approve/deny a request
+  // Admin route to manage request approval/denial
   router.put('/admin/approve-request/:requestId', async (req, res) => {
-    const secret = req.query.adminSecret || req.headers['x-admin-secret'];
-    if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
     try {
       const { requestId } = req.params;
       const { action } = req.body; // 'approve' or 'deny'
+      const targetReq = await Request.findById(requestId);
       
-      const targetReq = await Request.findById(requestId); 
-
       if (!targetReq) return res.status(404).json({ error: 'Request not found' });
-
+      
       if (action === 'approve') {
-        // 1. Update the Request document to APPROVED
+        // approve
         targetReq.status = 'APPROVED';
         targetReq.updatedAt = Date.now();
         await targetReq.save();
         
-        // 2. IMPORTANT: Update the User (Hospital) document to mark the request as active
-        const hospitalUser = await User.findOne({ userId: targetReq.requesterId }); 
-        if (hospitalUser) {
-            hospitalUser.isRequestActive = true; 
-            hospitalUser.bloodTypeNeeded = targetReq.bloodTypeNeeded; 
-            hospitalUser.requestPinCode = targetReq.pinCode; 
-            hospitalUser.updatedAt = new Date(); 
-            await hospitalUser.save();
-        }
+        // Find all verified donors in the same pincode and emit a notification
+        const matchingDonors = await User.find({
+            userRole: 'Donor',
+            status: 'VERIFIED',
+            pinCode: targetReq.pinCode,
+            bloodType: targetReq.bloodTypeNeeded
+        }).select('userId'); 
 
-        // 3. Emit socket event
-        if (io) io.emit('requestApproved', { 
-            requestId: targetReq._id, 
-            pinCode: targetReq.pinCode, 
-            bloodTypeNeeded: targetReq.bloodTypeNeeded 
+        const donorIds = matchingDonors.map(d => d.userId);
+        
+        if (io) io.emit('requestApproved', {
+            requestId: targetReq._id,
+            donorIds: donorIds,
+            pinCode: targetReq.pinCode,
+            bloodType: targetReq.bloodTypeNeeded
         });
+        
         return res.json({ request: targetReq });
       } else {
-        // deny
+        // deny (or cancel)
         targetReq.status = 'DENIED';
         targetReq.updatedAt = Date.now();
         await targetReq.save();
@@ -162,10 +196,10 @@ module.exports = function(io) {
       // 2. Get all requests
       const requests = await Request.find({});
       // 3. Send both back
-      res.json({KZ: 'success', users, requests });
+      return res.json({ users, requests });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Sync failed' });
+      console.error('sync-storage error', err);
+      return res.status(500).json({ error: 'sync failed' });
     }
   });
 
