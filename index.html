@@ -611,14 +611,33 @@ qs('request-form').addEventListener('submit', async (e) => {
 
 /* ======= Data fetching & rendering ======= */
 async function fetchAndSyncInternal() {
-  const res = await API.get('/sync-storage');
-  if (!res.ok) { showNotification('Sync failed'); return; }
-  const users = res.json.users || [];
-  const requests = res.json.requests || [];
-  renderRequests(requests);
-  renderAdminLists(users, requests);
-  renderDonorMarkers(users);
+  try {
+    // Pending users
+    const pendingRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+
+    // Approved users
+    const approvedRes = await API.get(`/admin/all-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+
+    // Pending requests
+    const pendingReqRes = await API.get(`/admin/pending-requests?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+
+    if (!pendingRes.ok || !approvedRes.ok || !pendingReqRes.ok) {
+      console.warn("One or more admin sync endpoints failed");
+      return;
+    }
+
+    const pendingUsers = pendingRes.json.users || [];
+    const approvedUsers = approvedRes.json.users || [];
+    const pendingRequests = pendingReqRes.json.requests || [];
+
+    // IMPORTANT: Call renderer with *all 3*
+    renderAdminLists(pendingUsers, approvedUsers, pendingRequests);
+
+  } catch (err) {
+    console.error("fetchAndSyncInternal error:", err);
+  }
 }
+
 
 /* Render requests for donors/hospitals */
 function renderRequests(requests) {
@@ -872,26 +891,34 @@ async function closeRequest(requestId) {
 }
 
 async function fetchAndRenderAdmin() {
-  // Fetch pending users
-  const pendingRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-  
-  // Fetch all verified (approved) users
-  const approvedRes = await API.get(`/admin/all-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+  try {
+    // 1. Get pending users
+    const pendingRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
 
-  // Fetch pending requests
-  const pendingReqRes = await API.get(`/admin/pending-requests?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+    // 2. Get approved users
+    const approvedRes = await API.get(`/admin/all-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
 
-  if (!pendingRes.ok || !approvedRes.ok || !pendingReqRes.ok) {
-    return showNotification("Could not load admin lists");
+    // 3. Get pending requests
+    const pendingReqRes = await API.get(`/admin/pending-requests?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+
+    if (!pendingRes.ok || !approvedRes.ok || !pendingReqRes.ok) {
+      showNotification("Failed to load admin dashboard data");
+      return;
+    }
+
+    const pendingUsers = pendingRes.json.users || [];
+    const approvedUsers = approvedRes.json.users || [];
+    const pendingRequests = pendingReqRes.json.requests || [];
+
+    // >>> FIX: now give all 3 lists to the renderer <<<
+    renderAdminLists(pendingUsers, approvedUsers, pendingRequests);
+
+  } catch (err) {
+    console.error("Admin fetch error:", err);
+    showNotification("Admin failed to load.");
   }
-
-  const pendingUsers = pendingRes.json.users || [];
-  const approvedUsers = approvedRes.json.users || [];
-  const pendingReqs = pendingReqRes.json.requests || [];
-
-  // SEND ALL THREE LISTS TO renderAdminLists
-  renderAdminLists(pendingUsers, approvedUsers, pendingReqs);
 }
+
 
 
 function simulateCall(name, phone) {
