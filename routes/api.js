@@ -111,6 +111,27 @@ module.exports = function(io) {
     }
   });
 
+  router.get("/admin/all-users", async (req, res) => {
+  try {
+    const users = await User.find({ status: "APPROVED" });
+    res.json({ users });
+  } catch (err) {
+    console.error("Admin all-users error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/admin/pending-requests", async (req, res) => {
+  try {
+    const requests = await Request.find({ status: "PENDING" });
+    res.json({ requests });
+  } catch (err) {
+    console.error("Admin pending-requests error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
   // Approve a pending user
   router.put('/admin/approve-user/:userId', async (req, res) => {
     try {
