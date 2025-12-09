@@ -611,33 +611,14 @@ qs('request-form').addEventListener('submit', async (e) => {
 
 /* ======= Data fetching & rendering ======= */
 async function fetchAndSyncInternal() {
-  try {
-    // Pending users
-    const pendingRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-
-    // Approved users
-    const approvedRes = await API.get(`/admin/all-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-
-    // Pending requests
-    const pendingReqRes = await API.get(`/admin/pending-requests?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-
-    if (!pendingRes.ok || !approvedRes.ok || !pendingReqRes.ok) {
-      console.warn("One or more admin sync endpoints failed");
-      return;
-    }
-
-    const pendingUsers = pendingRes.json.users || [];
-    const approvedUsers = approvedRes.json.users || [];
-    const pendingRequests = pendingReqRes.json.requests || [];
-
-    // IMPORTANT: Call renderer with *all 3*
-    renderAdminLists(pendingUsers, approvedUsers, pendingRequests);
-
-  } catch (err) {
-    console.error("fetchAndSyncInternal error:", err);
-  }
+  const res = await API.get('/sync-storage');
+  if (!res.ok) { showNotification('Sync failed'); return; }
+  const users = res.json.users || [];
+  const requests = res.json.requests || [];
+  renderRequests(requests);
+  renderAdminLists(users, requests);
+  renderDonorMarkers(users);
 }
-
 
 /* Render requests for donors/hospitals */
 function renderRequests(requests) {
@@ -650,21 +631,6 @@ function renderRequests(requests) {
   }
   // For donors: filter requests by their pin (if available)
   let filtered = requests;
-
-// Hide closed requests (both donor & hospital dashboards)
-filtered = filtered.filter(r => r.status !== "CLOSED");
-
-// Donors see only local requests
-if (userProfile && userProfile.userRole === "Donor") {
-  filtered = filtered.filter(r => r.pinCode === userProfile.pinCode);
-}
-
-// Hospitals see only their own requests
-if (userProfile && userProfile.userRole === "Hospital") {
-  filtered = filtered.filter(r => r.requesterId === userProfile.userId);
-}
-
-
   if (userProfile && userProfile.userRole === 'Donor' && userProfile.pinCode) {
     filtered = requests.filter(r => r.pinCode === userProfile.pinCode && (r.status === 'PENDING' || !r.status));
   }
@@ -676,32 +642,12 @@ if (userProfile && userProfile.userRole === "Hospital") {
   filtered.forEach(r => {
     const card = createElem('div','p-3 bg-white rounded shadow border');
     card.innerHTML = `<div class="flex justify-between items-start">
-
       <div>
         <div class="text-sm text-gray-500">Requested by: <strong>${escapeHTML(r.name || r.requesterName || 'Hospital')}</strong></div>
         <div class="text-lg font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
         <div class="text-xs text-gray-500">Status: ${(r.status || 'PENDING')}</div>
       </div>
     </div>`;
-    // HOSPITAL: show close button for own requests
-    if (userProfile && userProfile.userRole === "Hospital" && userProfile.userId === r.requesterId) {
-      const closeBtn = document.createElement("button");
-      closeBtn.className = "mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm";
-      closeBtn.textContent = "Close Request";
-      closeBtn.addEventListener("click", () => closeRequest(r._id));
-      card.appendChild(closeBtn);
-    }
-
-    // DONOR: show call hospital button
-    if (userProfile && userProfile.userRole === "Donor") {
-      const callBtn = document.createElement("button");
-      callBtn.className = "mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm";
-      callBtn.textContent = "Call Hospital";
-      callBtn.addEventListener("click", () => {
-        simulateCall(r.name || r.requesterName || "Hospital", r.phone);
-      });
-      card.appendChild(callBtn);
-    }
     list.appendChild(card);
   });
 }
@@ -777,88 +723,50 @@ async function renderDonorsFor(pin, bloodType) {
 }
 
 /* Admin rendering helpers */
-function renderAdminLists(pendingUsers, approvedUsers, pendingRequests) {
-
-  // -------- PENDING USERS --------
-  const pendingUsersList = qs('pending-users-list');
-  pendingUsersList.innerHTML = '';
-
-  (pendingUsers || []).forEach(u => {
+function renderAdminLists(users, requests) {
+  // Pending users
+  const pendingUsersList = qs('pending-users-list'); pendingUsersList.innerHTML = '';
+  (users || []).filter(u => u.status === 'PENDING_VERIFICATION').forEach(u => {
     const card = createElem('div','p-3 bg-white rounded border flex justify-between items-center');
-    card.innerHTML = `
-      <div>
-        <div class="font-semibold">${escapeHTML(u.name)}</div>
-        <div class="text-xs text-gray-500">
-          Phone: ${escapeHTML(u.phone || '')} • Role: ${escapeHTML(u.userRole)}
-        </div>
-      </div>
-    `;
-
-    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm');
-    approveBtn.textContent = 'Approve';
-    approveBtn.addEventListener('click', ()=> adminApproveUser(u.userId));
-
+    card.innerHTML = `<div>
+      <div class="font-semibold">${escapeHTML(u.name)}</div>
+      <div class="text-xs text-gray-500">Phone: ${escapeHTML(u.phone || '')} • Role: ${escapeHTML(u.userRole)}</div>
+    </div>`;
     const btns = createElem('div','flex space-x-2');
+    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm'); approveBtn.textContent='Approve';
+    approveBtn.addEventListener('click', ()=> adminApproveUser(u.userId));
     btns.appendChild(approveBtn);
-
     card.appendChild(btns);
     pendingUsersList.appendChild(card);
   });
 
-
-  // -------- ALL APPROVED USERS --------
-  const allUsersList = qs('all-users-list');
-  allUsersList.innerHTML = '';
-
-  (approvedUsers || []).forEach(u => {
+  // All users
+  const allUsersList = qs('all-users-list'); allUsersList.innerHTML = '';
+  (users || []).forEach(u => {
     const card = createElem('div','p-3 bg-white rounded border');
-    card.innerHTML = `
-      <div class="font-semibold">
-        ${escapeHTML(u.name)}
-        <span class="text-xs text-gray-500">(${escapeHTML(u.userRole)})</span>
-      </div>
-      <div class="text-xs text-gray-500">
-        Phone: ${escapeHTML(u.phone || '')} • 
-        Pin: ${escapeHTML(u.pinCode || '')} • 
-        Status: ${escapeHTML(u.status || '')}
-      </div>
-    `;
+    card.innerHTML = `<div class="font-semibold">${escapeHTML(u.name)} <span class="text-xs text-gray-500">(${escapeHTML(u.userRole)})</span></div>
+      <div class="text-xs text-gray-500">Phone: ${escapeHTML(u.phone || '')} • Pin: ${escapeHTML(u.pinCode || '')} • Status: ${escapeHTML(u.status || '')}</div>`;
     allUsersList.appendChild(card);
   });
 
-
-  // -------- PENDING REQUESTS --------
-  const pendingReqsList = qs('pending-requests-list');
-  pendingReqsList.innerHTML = '';
-
-  (pendingRequests || []).forEach(r => {
+  // Pending requests
+  const pendingReqsList = qs('pending-requests-list'); pendingReqsList.innerHTML = '';
+  (requests || []).filter(r => (r.status === 'PENDING' || !r.status)).forEach(r => {
     const card = createElem('div','p-3 bg-white rounded border flex justify-between items-center');
-    card.innerHTML = `
-      <div>
-        <div class="font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
-        <div class="text-xs text-gray-500">
-          By: ${escapeHTML(r.name || r.requesterName || 'Hospital')}
-        </div>
-      </div>
-    `;
-
-    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm');
-    approveBtn.textContent = 'Approve';
-    approveBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'approve'));
-
-    const denyBtn = createElem('button','px-3 py-1 rounded bg-red-600 text-white text-sm');
-    denyBtn.textContent = 'Deny';
-    denyBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'deny'));
-
+    card.innerHTML = `<div>
+      <div class="font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
+      <div class="text-xs text-gray-500">By: ${escapeHTML(r.name || r.requesterName || 'Hospital')}</div>
+    </div>`;
     const btns = createElem('div','flex space-x-2');
-    btns.appendChild(approveBtn);
-    btns.appendChild(denyBtn);
-
+    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm'); approveBtn.textContent='Approve';
+    approveBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'approve'));
+    const denyBtn = createElem('button','px-3 py-1 rounded bg-red-600 text-white text-sm'); denyBtn.textContent='Deny';
+    denyBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'deny'));
+    btns.appendChild(approveBtn); btns.appendChild(denyBtn);
     card.appendChild(btns);
     pendingReqsList.appendChild(card);
   });
 }
-
 
 /* Admin actions (call backend admin routes with adminSecret query param) */
 async function adminApproveUser(userId) {
@@ -873,58 +781,16 @@ async function adminApproveRequest(requestId, action) {
   showNotification('Action completed');
   fetchAndSyncInternal();
 }
-async function closeRequest(requestId) {
-  const confirmClose = confirm("Are you sure you want to close this request?");
-  if (!confirmClose) return;
-
-  const res = await API.put(`/request/close/${encodeURIComponent(requestId)}`, {
-    requesterId: userProfile.userId
-  });
-
-  if (!res.ok) {
-    showNotification("Failed to close request.");
-    return;
-  }
-
-  showNotification("Request closed successfully.");
-  fetchAndSyncInternal();
-}
-
 async function fetchAndRenderAdmin() {
-  try {
-    // 1. Get pending users
-    const pendingRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-
-    // 2. Get approved users
-    const approvedRes = await API.get(`/admin/all-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-
-    // 3. Get pending requests
-    const pendingReqRes = await API.get(`/admin/pending-requests?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-
-    if (!pendingRes.ok || !approvedRes.ok || !pendingReqRes.ok) {
-      showNotification("Failed to load admin dashboard data");
-      return;
-    }
-
-    const pendingUsers = pendingRes.json.users || [];
-    const approvedUsers = approvedRes.json.users || [];
-    const pendingRequests = pendingReqRes.json.requests || [];
-
-    // >>> FIX: now give all 3 lists to the renderer <<<
-    renderAdminLists(pendingUsers, approvedUsers, pendingRequests);
-
-  } catch (err) {
-    console.error("Admin fetch error:", err);
-    showNotification("Admin failed to load.");
+  // fetch pending via admin protected endpoint
+  const usersRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+  if (usersRes.ok) {
+    const users = usersRes.json.users || [];
+    renderAdminLists(users, []);
+  } else {
+    showNotification('Could not load admin lists');
   }
 }
-
-
-
-function simulateCall(name, phone) {
-  alert(`📞 Simulating call to ${name} (${phone})...`);
-}
-
 
 /* Utility: escape text for DOM insertion */
 function escapeHTML(s) {
@@ -955,47 +821,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
-// Pending Users tab
-qs("admin-tab-users")?.addEventListener("click", () => {
-  qs("admin-tab-users").classList.add("border-b-2","border-blue-600","text-blue-600");
-  qs("admin-tab-management").classList.remove("border-b-2","border-blue-600","text-blue-600");
-  qs("admin-tab-requests").classList.remove("border-b-2","border-blue-600","text-blue-600");
 
-  qs("admin-view-users").classList.remove("hidden");
-  qs("admin-view-management").classList.add("hidden");
-  qs("admin-view-requests").classList.add("hidden");
-});
-
-// All Users tab
-qs("admin-tab-management")?.addEventListener("click", () => {
-  qs("admin-tab-management").classList.add("border-b-2","border-blue-600","text-blue-600");
-  qs("admin-tab-users").classList.remove("border-b-2","border-blue-600","text-blue-600");
-  qs("admin-tab-requests").classList.remove("border-b-2","border-blue-600","text-blue-600");
-
-  qs("admin-view-management").classList.remove("hidden");
-  qs("admin-view-users").classList.add("hidden");
-  qs("admin-view-requests").classList.add("hidden");
-});
-
-// Pending Requests tab
-qs("admin-tab-requests")?.addEventListener("click", () => {
-  qs("admin-tab-requests").classList.add("border-b-2","border-blue-600","text-blue-600");
-  qs("admin-tab-users").classList.remove("border-b-2","border-blue-600","text-blue-600");
-  qs("admin-tab-management").classList.remove("border-b-2","border-blue-600","text-blue-600");
-
-  qs("admin-view-requests").classList.remove("hidden");
-  qs("admin-view-users").classList.add("hidden");
-  qs("admin-view-management").classList.add("hidden");
-});
-
-// Logout
-qs("admin-logout-btn")?.addEventListener("click", () => {
-  adminDashboard.classList.add("hidden");
-  roleSelection.classList.remove("hidden");
-  showNotification("Admin logged out.");
-});
-
-// ================= END OF ADMIN FIX =======================
 /* ---------- helpers to trigger donor search on hospital submit ---------- */
 qs('submit-request-btn')?.addEventListener('click', (ev)=> {
   // allow form submit to run first, then fetch donors for given pin/type
