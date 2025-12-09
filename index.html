@@ -21,6 +21,7 @@
     .hospital-bubble { background:#f0f8ff; border:3px solid #60a5fa; }
     .admin-bubble { background:#f3f4f6; border:3px solid #9ca3af; }
     .hidden-for-donor { display:none !important; }
+    .file-name { font-size: 0.9rem; color: #374151; }
   </style>
 </head>
 <body>
@@ -79,15 +80,53 @@
         <h3 class="text-lg font-semibold mb-3"><span id="registration-role"></span> Registration</h3>
         <form id="profile-form" class="space-y-3">
           <input type="hidden" id="userRoleHidden" value="Donor" />
+
           <input id="name" placeholder="Full name" class="w-full p-3 border rounded" required />
           <input id="phone" placeholder="Phone" class="w-full p-3 border rounded" required />
-          <div class="grid grid-cols-2 gap-2">
-            <input id="pinCode" placeholder="Pin code (6 digits)" class="w-full p-3 border rounded" required />
-            <select id="bloodType" class="w-full p-3 border rounded">
-              <option value="">Blood type (optional)</option>
-              <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
-            </select>
+
+          <!-- Address (for both Donor & Hospital) -->
+          <textarea id="address" placeholder="Full address (street/locality)" rows="2" class="w-full p-3 border rounded" required></textarea>
+
+          <div id="donor-specific-fields" class="space-y-2">
+            <!-- shown only when registering as Donor -->
+            <div class="grid grid-cols-3 gap-2">
+              <input id="age" type="number" placeholder="Age" class="p-3 border rounded" />
+              <input id="weight" type="number" placeholder="Weight (kg)" class="p-3 border rounded" />
+              <select id="gender" class="p-3 border rounded">
+                <option value="">Gender</option><option>Male</option><option>Female</option><option>Other</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <select id="bloodType" class="p-3 border rounded" required>
+                <option value="">Blood type (required)</option>
+                <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+              </select>
+              <input id="pinCode" placeholder="Pin code (6 digits)" class="p-3 border rounded" required />
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-sm font-medium text-gray-700">Upload medical document (PDF) — simulated</label>
+              <input type="file" id="medicalDocumentFile" accept="application/pdf" class="block w-full text-sm text-gray-500" />
+              <div id="medical-file-name" class="file-name"></div>
+            </div>
           </div>
+
+          <div id="hospital-specific-fields" class="space-y-2 hidden">
+            <!-- shown when registering as Hospital -->
+            <div class="grid grid-cols-2 gap-2">
+              <input id="hospital-pinCode" placeholder="Pin code (6 digits)" class="p-3 border rounded" required />
+              <!-- Hospital has no bloodType -->
+              <input id="hospital-contact-email" placeholder="Contact email (optional)" class="p-3 border rounded" />
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2 p-3 bg-blue-50 rounded">
+            <input type="checkbox" id="verification-check" required class="h-4 w-4 text-blue-600" />
+            <label for="verification-check" class="text-sm text-blue-800">I verify the provided data is accurate.</label>
+          </div>
+
           <button class="w-full py-3 rounded-xl btn-primary">Register</button>
           <button type="button" id="signup-back-to-role" class="w-full text-sm text-gray-500">← Back</button>
         </form>
@@ -106,7 +145,7 @@
       <!-- Blocked (waiting verification) -->
       <div id="user-blocked" class="hidden p-4 bg-red-50 rounded">
         <h3 class="font-bold text-red-600">Account pending verification</h3>
-        <p class="text-gray-600">Your account is awaiting admin verification.</p>
+        <p class="text-gray-600">Your account is awaiting admin approval.</p>
         <button id="blocked-logout-btn" class="mt-3 text-sm text-gray-500">Back to main</button>
       </div>
 
@@ -149,11 +188,11 @@
           </div>
         </div>
 
-        <!-- donor status -->
+        <!-- donor/hospital status -->
         <div class="bg-gray-50 p-4 rounded mb-4">
           <div class="flex justify-between">
             <div>
-              <div class="text-sm text-gray-600">Donor Status: <strong id="donor-status"></strong></div>
+              <div class="text-sm text-gray-600">Status: <strong id="donor-status"></strong></div>
               <div class="text-xs text-gray-500">Pin: <code id="user-pin-display"></code> • Blood: <code id="user-blood-display"></code></div>
             </div>
           </div>
@@ -200,9 +239,9 @@
 
 <script>
 /* ======= CONFIG ======= */
-const BACKEND_URL = "https://blood-connect-api-67g9.onrender.com"; // update if needed
+const BACKEND_URL = "https://blood-connect-api-67g9.onrender.com"; // keep your backend URL
 const API_BASE = BACKEND_URL + "/api";
-const ADMIN_SECRET = "hellowrld"; // from your .env (frontend uses it when admin performs actions) - backend validates its process.env.ADMIN_SECRET
+const ADMIN_SECRET = "999999"; // frontend admin secret (must match backend .env ADMIN_SECRET for admin API calls)
 
 /* ======= API helpers ======= */
 const API = {
@@ -243,11 +282,11 @@ function initSocket() {
   if (!window.io) { console.warn('socket.io client missing'); return; }
   socket = io(BACKEND_URL, { transports:['websocket','polling'] });
   socket.on('connect', ()=>console.log('socket connected', socket.id));
-  socket.on('newRequest', (d)=> { showNotification('New request created'); fetchAndSync(); });
-  socket.on('userRegistered', (d)=> { showNotification('New user registered'); fetchAndSync(); });
-  socket.on('userVerified', (d)=> { showNotification('User verification updated'); fetchAndSync(); });
-  socket.on('requestApproved', (d)=> { showNotification('A request was approved'); fetchAndSync(); });
-  socket.on('requestDenied', (d)=> { showNotification('A request was denied'); fetchAndSync(); });
+  socket.on('newRequest', (d)=> { showNotification('New request created'); fetchAndSyncInternal(); });
+  socket.on('userRegistered', (d)=> { showNotification('New user registered'); fetchAndSyncInternal(); });
+  socket.on('userVerified', (d)=> { showNotification('User verification updated'); fetchAndSyncInternal(); });
+  socket.on('requestApproved', (d)=> { showNotification('A request was approved'); fetchAndSyncInternal(); });
+  socket.on('requestDenied', (d)=> { showNotification('A request was denied'); fetchAndSyncInternal(); });
 }
 
 /* ======= UI helpers ======= */
@@ -264,6 +303,17 @@ function createElem(tag, className){ const e = document.createElement(tag); if(c
 const USER_KEY = 'blood_connect_user_profile';
 let userProfile = null;
 
+/* ======= PIN -> coordinates mapping (static for Bengaluru example) ======= */
+const PIN_COORDINATES = {
+  '560078': [12.903, 77.580], // JP Nagar
+  '560076': [12.923, 77.585], // Jayanagar
+  '560041': [12.915, 77.603], // BTM
+  '560066': [12.978, 77.753], // Whitefield
+  '560001': [12.980, 77.595], // CBD
+  '560037': [12.985, 77.700],
+  '560083': [12.890, 77.570]
+};
+
 /* ======= UI refs & initial wiring ======= */
 const roleButtons = Array.from(document.querySelectorAll('.select-role-btn'));
 const authSelection = qs('auth-selection');
@@ -279,7 +329,6 @@ const tabRequestBtn = qs('tab-request');
 const tabDonorBtn = qs('tab-donor');
 const requestForm = qs('request-form');
 
-/* Role selection */
 let currentSelectedRole = null;
 roleButtons.forEach(btn => btn.addEventListener('click', () => {
   const role = btn.getAttribute('data-role') || (btn.id === 'select-admin-role-btn' ? 'Admin' : null);
@@ -287,6 +336,12 @@ roleButtons.forEach(btn => btn.addEventListener('click', () => {
   qs('auth-role-display').textContent = role;
   roleSelection.classList.add('hidden');
   authSelection.classList.remove('hidden');
+
+  // When Admin chosen, show admin-login instead of generic auth-selection
+  if (role === 'Admin') {
+    authSelection.classList.add('hidden');
+    adminLoginBox.classList.remove('hidden');
+  }
 }));
 
 qs('auth-back-to-role').addEventListener('click', ()=> {
@@ -294,7 +349,7 @@ qs('auth-back-to-role').addEventListener('click', ()=> {
   roleSelection.classList.remove('hidden');
 });
 
-/* Login / Register flows (using backend) */
+/* Show login/register flows */
 qs('auth-login-btn').addEventListener('click', ()=> {
   authSelection.classList.add('hidden');
   loginBox.classList.remove('hidden');
@@ -305,16 +360,36 @@ qs('auth-register-btn').addEventListener('click', ()=> {
   registerBox.classList.remove('hidden');
   qs('registration-role').textContent = currentSelectedRole || 'New User';
   qs('userRoleHidden').value = currentSelectedRole || 'Donor';
+  toggleRegistrationFields(currentSelectedRole || 'Donor');
 });
 qs('login-back-to-auth').addEventListener('click', ()=> { loginBox.classList.add('hidden'); authSelection.classList.remove('hidden'); });
 qs('signup-back-to-role').addEventListener('click', ()=> { registerBox.classList.add('hidden'); roleSelection.classList.remove('hidden'); });
 qs('admin-back-to-role').addEventListener('click', ()=> { adminLoginBox.classList.add('hidden'); roleSelection.classList.remove('hidden'); });
 
+/* Toggle registration fields depending on role */
+function toggleRegistrationFields(role) {
+  if (role === 'Hospital') {
+    qs('donor-specific-fields').classList.add('hidden');
+    qs('hospital-specific-fields').classList.remove('hidden');
+    qs('userRoleHidden').value = 'Hospital';
+  } else {
+    qs('donor-specific-fields').classList.remove('hidden');
+    qs('hospital-specific-fields').classList.add('hidden');
+    qs('userRoleHidden').value = 'Donor';
+  }
+}
+
+/* Upload medical document (simulated): show filename */
+qs('medicalDocumentFile').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (f) qs('medical-file-name').textContent = f.name;
+  else qs('medical-file-name').textContent = '';
+});
+
 /* Login form submit (calls backend /api/auth/login) */
 qs('user-login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const phone = qs('login-phone').value.trim();
-  const role = currentSelectedRole || 'Donor';
   // call backend login
   const res = await API.post('/auth/login', { phone });
   if (!res.ok) {
@@ -322,7 +397,13 @@ qs('user-login-form').addEventListener('submit', async (e) => {
     return;
   }
   const user = res.json.user;
-  // If server returns user, persist
+  // CHECK verification status: must be VERIFIED
+  if (!user || user.status !== 'VERIFIED') {
+    showNotification('Account not verified yet. Await admin approval.');
+    // Optionally show blocked UI
+    qs('user-blocked').classList.remove('hidden');
+    return;
+  }
   userProfile = user;
   localStorage.setItem(USER_KEY, JSON.stringify(userProfile));
   enterDashboard();
@@ -331,43 +412,78 @@ qs('user-login-form').addEventListener('submit', async (e) => {
 /* Register form submit (calls backend /api/auth/register) */
 qs('profile-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const payload = {
+  const role = qs('userRoleHidden').value || 'Donor';
+  // build payload according to role requirements
+  const base = {
     userId: crypto.randomUUID(),
     name: qs('name').value.trim(),
     phone: qs('phone').value.trim(),
-    userRole: qs('userRoleHidden').value || 'Donor',
-    pinCode: (qs('pinCode').value || '').toString(),
-    bloodType: qs('bloodType').value || null
+    userRole: role,
+    address: qs('address').value.trim()
   };
-  const res = await API.post('/auth/register', payload);
-  if (!res.ok) {
-    showNotification('Register failed: ' + (res.json?.error || res.status));
-    return;
-  }
-  const user = res.json.user;
-  userProfile = user;
-  localStorage.setItem(USER_KEY, JSON.stringify(userProfile));
-  // If user requires verification (default PENDING_VERIFICATION) show blocked
-  if (user.status === 'PENDING_VERIFICATION') {
+
+  if (role === 'Donor') {
+    // require certain fields for donor
+    const age = parseInt(qs('age').value || '') || null;
+    const weight = parseFloat(qs('weight').value || '') || null;
+    const pinCode = (qs('pinCode').value || '').toString();
+    const bloodType = qs('bloodType').value || null;
+    if (!pinCode || !bloodType) {
+      showNotification('Donor registration requires pin code and blood type.');
+      return;
+    }
+    // medical document (simulate by sending filename)
+    const fileInput = qs('medicalDocumentFile');
+    let fileName = null;
+    if (fileInput && fileInput.files && fileInput.files[0]) fileName = fileInput.files[0].name;
+    const payload = Object.assign({}, base, {
+      age, weight,
+      pinCode,
+      bloodType,
+      gender: qs('gender').value || null,
+      bloodReportLink: fileName || null,
+      status: 'PENDING_VERIFICATION' // server also sets default; explicit here ensures pending
+    });
+    const res = await API.post('/auth/register', payload);
+    if (!res.ok) { showNotification('Register failed: ' + (res.json?.error || res.status)); return; }
+    showNotification('Registered — awaiting admin approval.');
+    // don't auto-login; admin must verify
     registerBox.classList.add('hidden');
     qs('user-blocked').classList.remove('hidden');
     return;
+  } else if (role === 'Hospital') {
+    // hospital fields: pinCode included, no bloodType
+    const pinCode = (qs('hospital-pinCode').value || '').toString();
+    if (!pinCode) { showNotification('Hospital registration requires pin code.'); return; }
+    const payload = Object.assign({}, base, {
+      pinCode,
+      // hospitals do not upload docs here
+      status: 'PENDING_VERIFICATION'
+    });
+    const res = await API.post('/auth/register', payload);
+    if (!res.ok) { showNotification('Register failed: ' + (res.json?.error || res.status)); return; }
+    showNotification('Hospital registered — awaiting admin approval.');
+    registerBox.classList.add('hidden');
+    qs('user-blocked').classList.remove('hidden');
+    return;
+  } else {
+    showNotification('Unknown role');
+    return;
   }
-  enterDashboard();
 });
 
-/* Admin login (quick demo uses adminSecret locally to open admin UI) */
+/* Admin login (front-end UI gating). On enter, open admin dashboard if pin matches frontend ADMIN_SECRET */
 qs('admin-login-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const pin = qs('admin-pin').value.trim();
-  // This is just for showing the admin UI (the server validates admin API calls server-side)
   if (pin === ADMIN_SECRET) {
+    // show admin UI
     roleSelection.classList.add('hidden');
     adminLoginBox.classList.add('hidden');
     adminDashboard.classList.remove('hidden');
     fetchAndRenderAdmin();
   } else {
-    showNotification('Invalid admin secret');
+    showNotification('Invalid admin key');
   }
 });
 
@@ -381,7 +497,7 @@ function enterDashboard() {
   adminDashboard.classList.add('hidden');
   mainDashboard.classList.remove('hidden');
   qs('dashboard-role-display').textContent = userProfile.userRole;
-  qs('user-pin-display').textContent = userProfile.pinCode || '';
+  qs('user-pin-display').textContent = userProfile.pinCode || (userProfile.requestPinCode || '');
   qs('user-blood-display').textContent = userProfile.bloodType || '';
   qs('donor-status').textContent = userProfile.status || '';
 
@@ -402,7 +518,7 @@ function enterDashboard() {
     adminDashboard.classList.remove('hidden');
   }
 
-  fetchAndSync();
+  fetchAndSyncInternal();
 }
 
 /* Logout */
@@ -451,49 +567,29 @@ qs('request-form').addEventListener('submit', async (e) => {
     bloodTypeNeeded: qs('bloodTypeNeeded').value,
     createdAt: new Date().toISOString()
   };
-  // POST to /api/request (note: api.js uses router.post('/request', ...))
-  const res = await API.post('/request', payload);
+  const res = await API.post('/request', payload); // POST /api/request
   if (!res.ok) {
     showNotification('Request failed: ' + (res.json?.error || res.status));
     return;
   }
   showNotification('Request submitted successfully.');
-  // emit socket event to server if available (server will broadcast to others anyway)
   if (socket) socket.emit('newRequest', res.json.request);
   qs('request-form').reset();
-  fetchAndSync();
+  fetchAndSyncInternal();
 });
 
 /* ======= Data fetching & rendering ======= */
-async function fetchAndSync() {
-  // call /api/sync-storage to get { users, requests }
+async function fetchAndSyncInternal() {
   const res = await API.get('/sync-storage');
-  if (!res.ok) {
-    showNotification('Sync failed: ' + res.status);
-    // fallback: try to fetch requests only
-    await fetchRequestsOnly();
-    return;
-  }
+  if (!res.ok) { showNotification('Sync failed'); return; }
   const users = res.json.users || [];
   const requests = res.json.requests || [];
-  // render requests list for donors & admin
   renderRequests(requests);
-  // if last used matched pin show donors (no geo coords in backend)
-  // refresh admin lists if admin
   renderAdminLists(users, requests);
+  renderDonorMarkers(users);
 }
 
-async function fetchRequestsOnly() {
-  // fallback: try to fetch donors or requests through other endpoints if available
-  const resAll = await API.get('/sync-storage');
-  if (resAll.ok) {
-    renderRequests(resAll.json.requests || []);
-    renderAdminLists(resAll.json.users || [], resAll.json.requests || []);
-  } else {
-    showNotification('Unable to load requests.');
-  }
-}
-
+/* Render requests for donors/hospitals */
 function renderRequests(requests) {
   const list = qs('requests-list');
   list.innerHTML = '';
@@ -525,7 +621,46 @@ function renderRequests(requests) {
   });
 }
 
-/* Render donors list (for hospital after submitting a pin & bloodTypeNeeded) */
+/* ======= Map: Group donors by pin and show one marker per pin ======= */
+let leafletMap = null;
+let leafletMarkers = [];
+function initMap() {
+  try {
+    leafletMap = L.map('donorMap', { attributionControl: false }).setView([12.97,77.59], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(leafletMap);
+  } catch (e) { console.warn('Leaflet init error', e); }
+}
+function clearMarkers() {
+  leafletMarkers.forEach(m => leafletMap.removeLayer(m));
+  leafletMarkers = [];
+}
+function renderDonorMarkers(users) {
+  if (!leafletMap) initMap();
+  clearMarkers();
+  if (!users || users.length === 0) {
+    // nothing to show
+    return;
+  }
+  // only donors who are VERIFIED
+  const donors = (users || []).filter(u => u.userRole === 'Donor' && u.status === 'VERIFIED' && u.pinCode);
+  // group by pin
+  const byPin = donors.reduce((acc, d) => {
+    acc[d.pinCode] = acc[d.pinCode] || [];
+    acc[d.pinCode].push(d);
+    return acc;
+  }, {});
+  Object.keys(byPin).forEach(pin => {
+    const group = byPin[pin];
+    const coords = PIN_COORDINATES[pin];
+    if (!coords) return; // skip pins we don't have coords for
+    const marker = L.marker(coords).addTo(leafletMap);
+    const popupHtml = `<div><strong>Pin ${escapeHTML(pin)}</strong><br/>Donors: ${group.length}<ul style="margin-top:8px;padding-left:16px">${group.map(d => `<li>${escapeHTML(d.name)} • ${escapeHTML(d.bloodType || '')} • ${escapeHTML(d.phone || '')}</li>`).join('')}</ul></div>`;
+    marker.bindPopup(popupHtml);
+    leafletMarkers.push(marker);
+  });
+}
+
+/* Render donors list for a given pin & bloodType (used after hospital requests) */
 async function renderDonorsFor(pin, bloodType) {
   const donorsList = qs('donors-list');
   donorsList.innerHTML = '';
@@ -544,8 +679,6 @@ async function renderDonorsFor(pin, bloodType) {
     donorsList.appendChild(createElem('div','p-3 text-gray-600 bg-yellow-50 rounded')).textContent = 'No verified donors found for this pin & blood type.';
     return;
   }
-
-  // Render each donor
   donors.forEach(d => {
     const card = createElem('div','p-3 bg-white rounded shadow border flex justify-between');
     card.innerHTML = `<div>
@@ -555,17 +688,13 @@ async function renderDonorsFor(pin, bloodType) {
     </div>`;
     donorsList.appendChild(card);
   });
-
-  // Show matched pin
   qs('matched-pin-display').textContent = pin;
-  // If you want to show them on the map, you'd need to extend backend with coords. For now we show no markers.
 }
 
 /* Admin rendering helpers */
 function renderAdminLists(users, requests) {
   // Pending users
-  const pendingUsersList = qs('pending-users-list');
-  pendingUsersList.innerHTML = '';
+  const pendingUsersList = qs('pending-users-list'); pendingUsersList.innerHTML = '';
   (users || []).filter(u => u.status === 'PENDING_VERIFICATION').forEach(u => {
     const card = createElem('div','p-3 bg-white rounded border flex justify-between items-center');
     card.innerHTML = `<div>
@@ -611,18 +740,18 @@ function renderAdminLists(users, requests) {
 /* Admin actions (call backend admin routes with adminSecret query param) */
 async function adminApproveUser(userId) {
   const res = await API.put(`/admin/approve-user/${encodeURIComponent(userId)}?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`, {});
-  if (!res.ok) { showNotification('Approve user failed'); return; }
+  if (!res.ok) { showNotification('Approve user failed: ' + (res.json?.error || res.status)); return; }
   showNotification('User approved');
-  fetchAndSync();
+  fetchAndSyncInternal();
 }
 async function adminApproveRequest(requestId, action) {
   const res = await API.put(`/admin/approve-request/${encodeURIComponent(requestId)}?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`, { action });
-  if (!res.ok) { showNotification('Action failed'); return; }
+  if (!res.ok) { showNotification('Action failed: ' + (res.json?.error || res.status)); return; }
   showNotification('Action completed');
-  fetchAndSync();
+  fetchAndSyncInternal();
 }
 async function fetchAndRenderAdmin() {
-  // fetch pending via admin protected endpoint (server expects adminSecret)
+  // fetch pending via admin protected endpoint
   const usersRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
   if (usersRes.ok) {
     const users = usersRes.json.users || [];
@@ -638,7 +767,7 @@ function escapeHTML(s) {
   return String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-/* ======= Initial load: check saved user profile ======= */
+/* ======= Initial load: check saved user profile & init map ======= */
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem(USER_KEY);
   if (saved) {
@@ -646,49 +775,34 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   if (userProfile) enterDashboard();
   else {
-    // show role selection
     qs('loading-state')?.classList?.add('hidden');
     roleSelection.classList.remove('hidden');
   }
-  // init a simple map container (no markers without coords)
-  try {
-    const map = L.map('donorMap', { attributionControl: false }).setView([12.97,77.59], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
-  } catch (e) { console.warn('Leaflet init error', e); }
+  initMap();
   initSocket();
+  // ensure admin role button opens admin login
+  const adminBtn = document.getElementById('select-admin-role-btn');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', () => {
+      currentSelectedRole = 'Admin';
+      roleSelection.classList.add('hidden');
+      adminLoginBox.classList.remove('hidden');
+    });
+  }
 });
 
-/* Fetch donors when hospital changes pin/bloodType or after request */
-qs('submit-request-btn')?.addEventListener('click', ()=> {
-  const pin = qs('request-pinCode').value.trim();
-  const bloodType = qs('bloodTypeNeeded').value;
-  if (pin && bloodType) renderDonorsFor(pin, bloodType);
+/* ---------- helpers to trigger donor search on hospital submit ---------- */
+qs('submit-request-btn')?.addEventListener('click', (ev)=> {
+  // allow form submit to run first, then fetch donors for given pin/type
+  setTimeout(()=> {
+    const pin = qs('request-pinCode').value.trim();
+    const btype = qs('bloodTypeNeeded').value;
+    if (pin && btype) renderDonorsFor(pin, btype);
+  }, 200);
 });
 
-/* Sync fetch helper */
-async function fetchAndSync() {
-  await fetchAndSyncInternal();
-}
-async function fetchAndSyncInternal() {
-  const res = await API.get('/sync-storage');
-  if (!res.ok) {
-    showNotification('Could not fetch data from server.');
-    return;
-  }
-  const users = res.json.users || [];
-  const requests = res.json.requests || [];
-  renderRequests(requests);
-  renderAdminLists(users, requests);
-  // If hospital and latest submitted pin/blood present, fetch donors for that pin
-  const pin = qs('request-pinCode').value.trim();
-  const btype = qs('bloodTypeNeeded').value;
-  if (pin && btype && userProfile && userProfile.userRole === 'Hospital') {
-    await renderDonorsFor(pin, btype);
-  }
-}
-
-/* Expose since some handlers call it */
-window.fetchAndSync = fetchAndSync;
+/* Expose fetch for debugging */
+window.fetchAndSync = fetchAndSyncInternal;
 window.renderDonorsFor = renderDonorsFor;
 </script>
 </body>
