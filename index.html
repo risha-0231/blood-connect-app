@@ -758,50 +758,88 @@ async function renderDonorsFor(pin, bloodType) {
 }
 
 /* Admin rendering helpers */
-function renderAdminLists(users, requests) {
-  // Pending users
-  const pendingUsersList = qs('pending-users-list'); pendingUsersList.innerHTML = '';
-  (users || []).filter(u => u.status === 'PENDING_VERIFICATION').forEach(u => {
+function renderAdminLists(pendingUsers, approvedUsers, pendingRequests) {
+
+  // -------- PENDING USERS --------
+  const pendingUsersList = qs('pending-users-list');
+  pendingUsersList.innerHTML = '';
+
+  (pendingUsers || []).forEach(u => {
     const card = createElem('div','p-3 bg-white rounded border flex justify-between items-center');
-    card.innerHTML = `<div>
-      <div class="font-semibold">${escapeHTML(u.name)}</div>
-      <div class="text-xs text-gray-500">Phone: ${escapeHTML(u.phone || '')} • Role: ${escapeHTML(u.userRole)}</div>
-    </div>`;
-    const btns = createElem('div','flex space-x-2');
-    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm'); approveBtn.textContent='Approve';
+    card.innerHTML = `
+      <div>
+        <div class="font-semibold">${escapeHTML(u.name)}</div>
+        <div class="text-xs text-gray-500">
+          Phone: ${escapeHTML(u.phone || '')} • Role: ${escapeHTML(u.userRole)}
+        </div>
+      </div>
+    `;
+
+    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm');
+    approveBtn.textContent = 'Approve';
     approveBtn.addEventListener('click', ()=> adminApproveUser(u.userId));
+
+    const btns = createElem('div','flex space-x-2');
     btns.appendChild(approveBtn);
+
     card.appendChild(btns);
     pendingUsersList.appendChild(card);
   });
 
-  // All users
-  const allUsersList = qs('all-users-list'); allUsersList.innerHTML = '';
-  (users || []).forEach(u => {
+
+  // -------- ALL APPROVED USERS --------
+  const allUsersList = qs('all-users-list');
+  allUsersList.innerHTML = '';
+
+  (approvedUsers || []).forEach(u => {
     const card = createElem('div','p-3 bg-white rounded border');
-    card.innerHTML = `<div class="font-semibold">${escapeHTML(u.name)} <span class="text-xs text-gray-500">(${escapeHTML(u.userRole)})</span></div>
-      <div class="text-xs text-gray-500">Phone: ${escapeHTML(u.phone || '')} • Pin: ${escapeHTML(u.pinCode || '')} • Status: ${escapeHTML(u.status || '')}</div>`;
+    card.innerHTML = `
+      <div class="font-semibold">
+        ${escapeHTML(u.name)}
+        <span class="text-xs text-gray-500">(${escapeHTML(u.userRole)})</span>
+      </div>
+      <div class="text-xs text-gray-500">
+        Phone: ${escapeHTML(u.phone || '')} • 
+        Pin: ${escapeHTML(u.pinCode || '')} • 
+        Status: ${escapeHTML(u.status || '')}
+      </div>
+    `;
     allUsersList.appendChild(card);
   });
 
-  // Pending requests
-  const pendingReqsList = qs('pending-requests-list'); pendingReqsList.innerHTML = '';
-  (requests || []).filter(r => (r.status === 'PENDING' || !r.status)).forEach(r => {
+
+  // -------- PENDING REQUESTS --------
+  const pendingReqsList = qs('pending-requests-list');
+  pendingReqsList.innerHTML = '';
+
+  (pendingRequests || []).forEach(r => {
     const card = createElem('div','p-3 bg-white rounded border flex justify-between items-center');
-    card.innerHTML = `<div>
-      <div class="font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
-      <div class="text-xs text-gray-500">By: ${escapeHTML(r.name || r.requesterName || 'Hospital')}</div>
-    </div>`;
-    const btns = createElem('div','flex space-x-2');
-    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm'); approveBtn.textContent='Approve';
+    card.innerHTML = `
+      <div>
+        <div class="font-semibold">${escapeHTML(r.bloodTypeNeeded || r.bloodType)} • Pin ${escapeHTML(r.pinCode)}</div>
+        <div class="text-xs text-gray-500">
+          By: ${escapeHTML(r.name || r.requesterName || 'Hospital')}
+        </div>
+      </div>
+    `;
+
+    const approveBtn = createElem('button','px-3 py-1 rounded bg-green-600 text-white text-sm');
+    approveBtn.textContent = 'Approve';
     approveBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'approve'));
-    const denyBtn = createElem('button','px-3 py-1 rounded bg-red-600 text-white text-sm'); denyBtn.textContent='Deny';
+
+    const denyBtn = createElem('button','px-3 py-1 rounded bg-red-600 text-white text-sm');
+    denyBtn.textContent = 'Deny';
     denyBtn.addEventListener('click', ()=> adminApproveRequest(r._id, 'deny'));
-    btns.appendChild(approveBtn); btns.appendChild(denyBtn);
+
+    const btns = createElem('div','flex space-x-2');
+    btns.appendChild(approveBtn);
+    btns.appendChild(denyBtn);
+
     card.appendChild(btns);
     pendingReqsList.appendChild(card);
   });
 }
+
 
 /* Admin actions (call backend admin routes with adminSecret query param) */
 async function adminApproveUser(userId) {
@@ -834,15 +872,28 @@ async function closeRequest(requestId) {
 }
 
 async function fetchAndRenderAdmin() {
-  // fetch pending via admin protected endpoint
-  const usersRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
-  if (usersRes.ok) {
-    const users = usersRes.json.users || [];
-    renderAdminLists(users, []);
-  } else {
-    showNotification('Could not load admin lists');
+  // Fetch pending users
+  const pendingRes = await API.get(`/admin/pending-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+  
+  // Fetch all verified (approved) users
+  const approvedRes = await API.get(`/admin/all-users?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+
+  // Fetch pending requests
+  const pendingReqRes = await API.get(`/admin/pending-requests?adminSecret=${encodeURIComponent(ADMIN_SECRET)}`);
+
+  if (!pendingRes.ok || !approvedRes.ok || !pendingReqRes.ok) {
+    return showNotification("Could not load admin lists");
   }
+
+  const pendingUsers = pendingRes.json.users || [];
+  const approvedUsers = approvedRes.json.users || [];
+  const pendingReqs = pendingReqRes.json.requests || [];
+
+  // SEND ALL THREE LISTS TO renderAdminLists
+  renderAdminLists(pendingUsers, approvedUsers, pendingReqs);
 }
+
+
 function simulateCall(name, phone) {
   alert(`📞 Simulating call to ${name} (${phone})...`);
 }
